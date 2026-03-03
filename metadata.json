@@ -1,0 +1,5 @@
+{
+  "name": "LabBox",
+  "description": "Smart packaging video recording support application for shops and sellers.",
+  "requestFramePermissions": ["camera", "microphone"]
+}
