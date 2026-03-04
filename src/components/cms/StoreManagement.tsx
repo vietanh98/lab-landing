@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Store, Edit, Trash2, Plus } from 'lucide-react';
 
 interface StoreManagementProps {
@@ -13,6 +13,8 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
   const [localStores, setLocalStores] = useState<any[]>(stores || []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
+  const lastRefreshKeyRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const fetchStores = async () => {
@@ -48,8 +50,16 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
       }
     };
 
+    const shouldFetch =
+      !hasFetchedRef.current ||
+      lastRefreshKeyRef.current !== refreshKey;
+
+    if (!shouldFetch) return;
+
+    hasFetchedRef.current = true;
+    lastRefreshKeyRef.current = refreshKey;
     fetchStores();
-  }, [stores, refreshKey]);
+  }, [refreshKey]);
 
   const handleUpdateStore = async (store: any) => {
     try {

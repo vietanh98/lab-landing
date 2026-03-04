@@ -78,12 +78,74 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     { id: 'ST002', name: 'Shop Mẹ Bé - Chi nhánh 2', status: 'Hoạt động' },
   ]);
   const [storeRefresh, setStoreRefresh] = useState(0); // increment to trigger reload
+  const [staff, setStaff] = useState<any[]>([]);
+  const staffLoadedRef = React.useRef(false);
 
-  const [staff, setStaff] = useState([
-    { id: 'NV001', name: 'Nguyễn Văn A', role: 'Quản lý', store: 'CN1', status: 'Online' },
-    { id: 'NV002', name: 'Trần Thị B', role: 'Nhân viên đóng gói', store: 'CN1', status: 'Offline' },
-    { id: 'NV003', name: 'Lê Văn C', role: 'Nhân viên đóng gói', store: 'CN2', status: 'Online' },
-  ]);
+  // Load staff list from API
+  React.useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const endpoint = `${apiBase}/api/v1/users?page=1&per_page=10`;
+
+        const headers: Record<string, string> = {
+          Accept: 'application/json, text/plain, */*',
+        };
+        const token = localStorage.getItem('token');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        headers['X-Timestamp'] = Date.now().toString();
+
+        const res = await fetch(endpoint, { method: 'GET', headers });
+        const data = await res.json().catch(() => ({}));
+
+        const ok = res.ok && (data?.status === true || data?.status_code === 0);
+        if (!ok) {
+          console.error('Failed to load staff', data);
+          showToast('Tải danh sách nhân viên không thành công', 'error');
+          return;
+        }
+
+        const rawList = Array.isArray(data?.data?.items)
+          ? data.data.items
+          : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.users)
+          ? data.users
+          : [];
+
+        if (!Array.isArray(rawList)) return;
+
+        const mapped = rawList.map((u: any) => ({
+          // giữ nguyên toàn bộ field API trả về
+          ...u,
+          // chuẩn hóa thêm một số field dùng để hiển thị
+          id:
+            (u.id !== undefined && u.id !== null
+              ? String(u.id)
+              : u.user_id !== undefined && u.user_id !== null
+              ? String(u.user_id)
+              : u.username || u.email || '') || '',
+          name: u.full_name || u.name || u.username || u.email || 'Không rõ tên',
+          role: u.role || u.role_name || 'Nhân viên',
+          store: u.store || u.store_id || 'CN1',
+          status: u.status || (u.is_active === false ? 'Offline' : 'Online'),
+        }));
+
+        setStaff(mapped);
+      } catch (err) {
+        console.error('Error fetching staff', err);
+        showToast('Không thể tải danh sách nhân viên', 'error');
+      }
+    };
+
+    if (staffLoadedRef.current) {
+      return;
+    }
+    staffLoadedRef.current = true;
+    fetchStaff();
+  }, []);
 
   // Modal states
   const [videoModal, setVideoModal] = useState<{ isOpen: boolean, video: any | null }>({ isOpen: false, video: null });
@@ -91,6 +153,8 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
   const [staffModal, setStaffModal] = useState<{ isOpen: boolean, member: any | null }>({ isOpen: false, member: null });
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean, storeId: string | null, storeName: string }>({ isOpen: false, storeId: null, storeName: '' });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [staffDeleteConfirm, setStaffDeleteConfirm] = useState<{ isOpen: boolean, userId: string | null, userName: string }>({ isOpen: false, userId: null, userName: '' });
+  const [isDeletingStaff, setIsDeletingStaff] = useState(false);
 
   const pricingPlans = [
     { name: "Cơ bản", price: "Miễn phí", period: "Mãi mãi", features: ["Lưu trữ 50 video/tháng", "Chất lượng HD 720p", "Tìm kiếm theo mã đơn"] },
@@ -142,8 +206,47 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
   };
 
   const handleDeleteStaff = (id: string) => {
-    if (confirm('Bạn có chắc chắn muốn xóa nhân viên này?')) {
-      setStaff(staff.filter(s => s.id !== id));
+    const user = staff.find(s => String(s.id) === String(id));
+    setStaffDeleteConfirm({
+      isOpen: true,
+      userId: String(id),
+      userName: user?.full_name || user?.name || user?.username || user?.email || 'nhân viên',
+    });
+  };
+
+  const confirmDeleteStaff = async () => {
+    if (!staffDeleteConfirm.userId) return;
+    setIsDeletingStaff(true);
+
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const endpoint = `${apiBase}/api/v1/users/${staffDeleteConfirm.userId}`;
+      const headers: Record<string, string> = {
+        Accept: 'application/json, text/plain, */*',
+      };
+      const token = localStorage.getItem('token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      headers['X-Timestamp'] = Date.now().toString();
+
+      const res = await fetch(endpoint, { method: 'DELETE', headers });
+      const data = await res.json().catch(() => ({}));
+      const ok = res.ok && (data?.status === true || data?.status_code === 0);
+
+      if (!ok) {
+        console.error('Failed to delete user', data);
+        showToast('Xóa nhân viên không thành công', 'error');
+      } else {
+        setStaff(prev => prev.filter(s => String(s.id) !== String(staffDeleteConfirm.userId)));
+        showToast('Xóa nhân viên thành công', 'success');
+      }
+    } catch (err) {
+      console.error('Delete user request error', err);
+      showToast('Không thể kết nối máy chủ', 'error');
+    } finally {
+      setIsDeletingStaff(false);
+      setStaffDeleteConfirm({ isOpen: false, userId: null, userName: '' });
     }
   };
 
@@ -264,28 +367,148 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     setStoreModal({ isOpen: false, store: null });
   };
 
-  const handleSaveStaff = (e: React.FormEvent) => {
+  const handleSaveStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    const name = formData.get('name') as string;
-    const role = formData.get('role') as string;
-    const store = formData.get('store') as string;
+    const formEl = e.target as HTMLFormElement;
+    const formData = new FormData(formEl);
+    const isEdit = !!staffModal.member;
 
-    if (staffModal.member) {
-      // Edit
-      setStaff(staff.map(s => s.id === staffModal.member.id ? { ...s, name, role, store } : s));
-    } else {
-      // Add
-      const newMember = {
-        id: `NV${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-        name,
-        role,
-        store,
-        status: 'Online'
-      };
-      setStaff([...staff, newMember]);
+    const full_name = (formData.get('full_name') as string || '').trim();
+    const email = (formData.get('email') as string || '').trim();
+    const statusStr = formData.get('status') as string;
+    const statusNum = Number(statusStr || 2); // default active
+
+    const phone = (formData.get('phone') as string || '').trim();
+
+    const username = !isEdit ? ((formData.get('username') as string) || '').trim() : '';
+    const password = !isEdit ? ((formData.get('password') as string) || '').trim() : '';
+    const confirm_password = !isEdit ? ((formData.get('confirm_password') as string) || '').trim() : '';
+
+    if (!full_name || !email || (!isEdit && !username)) {
+      showToast('Vui lòng nhập đầy đủ Username, Họ tên và Email', 'error');
+      return;
     }
-    setStaffModal({ isOpen: false, member: null });
+
+    if (!isEdit) {
+      if (!password || !confirm_password) {
+        showToast('Vui lòng nhập mật khẩu và xác nhận mật khẩu', 'error');
+        return;
+      }
+      if (password !== confirm_password) {
+        showToast('Mật khẩu xác nhận không khớp', 'error');
+        return;
+      }
+    }
+
+    try {
+      // Lấy owner (user_id của user đang đăng nhập)
+      let owner: number | string = '';
+      const storedUser = localStorage.getItem('user_info');
+      if (storedUser) {
+        try {
+          const info = JSON.parse(storedUser);
+          owner = info.id || info.user_id || info.sub || info.userId || '';
+        } catch {}
+      }
+      if (!owner) {
+        const tokenRaw = localStorage.getItem('token');
+        if (tokenRaw) {
+          try {
+            const payload = JSON.parse(atob(tokenRaw.split('.')[1]));
+            owner = payload.sub || payload.user_id || payload.id || '';
+          } catch {}
+        }
+      }
+      const numericOwner = owner ? Number(owner) : NaN;
+
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/plain, */*',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      headers['X-Timestamp'] = Date.now().toString();
+
+      if (isEdit) {
+        // Update existing staff via API
+        const userId = Number(staffModal.member.id ?? staffModal.member.user_id);
+        const endpoint = `${apiBase}/api/v1/users/${userId}`;
+        const body = {
+          user_id: userId,
+          full_name,
+          email,
+          phone,
+          status: statusNum,
+        };
+
+        const resp = await fetch(endpoint, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(body),
+        });
+        const respData = await resp.json().catch(() => ({}));
+        const ok = resp.ok && (respData?.status === true || respData?.status_code === 0);
+        if (!ok) {
+          console.error('Update staff failed', respData);
+          showToast('Cập nhật nhân viên không thành công', 'error');
+        } else {
+          const updatedUser = respData?.data || {
+            ...staffModal.member,
+            full_name,
+            email,
+            status: statusNum,
+          };
+          setStaff(prev =>
+            prev.map(s =>
+              String(s.id) === String(userId) ? { ...s, ...updatedUser } : s
+            )
+          );
+          showToast('Cập nhật nhân viên thành công', 'success');
+        }
+      } else {
+        // Create new staff via API
+        const endpoint = `${apiBase}/api/v1/users`;
+        const body: any = {
+          username,
+          full_name,
+          email,
+          phone,
+          status: statusNum,
+          password,
+          confirm_password,
+        };
+
+        if (!Number.isNaN(numericOwner)) {
+          body.owner = Number(numericOwner);
+        }
+
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        });
+        const respData = await resp.json().catch(() => ({}));
+        const ok = resp.ok && (respData?.status === true || respData?.status_code === 0);
+        if (!ok) {
+          console.error('Create staff failed', respData);
+          showToast('Thêm nhân viên không thành công', 'error');
+        } else {
+          showToast('Thêm nhân viên thành công', 'success');
+          // Reload page to get latest staff list from server
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        }
+      }
+
+      setStaffModal({ isOpen: false, member: null });
+    } catch (err) {
+      console.error('Save staff error', err);
+      showToast('Lỗi khi lưu nhân viên', 'error');
+    }
   };
 
   return (
@@ -541,40 +764,88 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                 {staffModal.member ? 'Sửa nhân viên' : 'Thêm nhân viên mới'}
               </h3>
               <form onSubmit={handleSaveStaff} className="space-y-4">
+                {!staffModal.member && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Username</label>
+                    <input
+                      name="username"
+                      defaultValue=""
+                      required
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
+                      placeholder="VD: test003"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Họ và tên</label>
                   <input 
-                    name="name"
-                    defaultValue={staffModal.member?.name}
+                    name="full_name"
+                    defaultValue={staffModal.member?.full_name || staffModal.member?.name}
                     required
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
                     placeholder="VD: Nguyễn Văn A"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Vai trò</label>
-                  <select 
-                    name="role"
-                    defaultValue={staffModal.member?.role || 'Nhân viên đóng gói'}
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email</label>
+                  <input 
+                    name="email"
+                    type="email"
+                    defaultValue={staffModal.member?.email}
+                    required
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                  >
-                    <option>Quản lý</option>
-                    <option>Nhân viên đóng gói</option>
-                    <option>Kiểm kho</option>
-                  </select>
+                    placeholder="name@company.com"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Cơ sở làm việc</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Số điện thoại</label>
+                  <input 
+                    name="phone"
+                    type="tel"
+                    defaultValue={staffModal.member?.phone || ''}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
+                    placeholder="VD: 0912345678"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Trạng thái</label>
                   <select 
-                    name="store"
-                    defaultValue={staffModal.member?.store || 'CN1'}
+                    name="status"
+                    defaultValue={
+                      staffModal.member
+                        ? String(Number(staffModal.member.status) === 1 ? 1 : 2)
+                        : '2'
+                    }
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
                   >
-                    {stores.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
+                    <option value="2">Hoạt động</option>
+                    <option value="1">Không hoạt động</option>
                   </select>
                 </div>
+                {!staffModal.member && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mật khẩu</label>
+                      <input
+                        name="password"
+                        type="password"
+                        required
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Xác nhận mật khẩu</label>
+                      <input
+                        name="confirm_password"
+                        type="password"
+                        required
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="flex gap-3 pt-4">
                   <button 
                     type="button"
@@ -596,7 +867,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         )}
       </AnimatePresence>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Store Confirmation Modal */}
       <AnimatePresence>
         {deleteConfirm.isOpen && (
           <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
@@ -637,6 +908,54 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                   className="flex-1 py-3 font-bold text-white bg-rose-500 rounded-xl hover:bg-rose-600 transition-colors disabled:opacity-70"
                 >
                   {isDeleting ? 'Xóa...' : 'Xóa'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Staff Confirmation Modal */}
+      <AnimatePresence>
+        {staffDeleteConfirm.isOpen && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setStaffDeleteConfirm({ isOpen: false, userId: null, userName: '' })}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white rounded-2xl p-8 shadow-2xl"
+            >
+              <div className="flex justify-center mb-4">
+                <div className="w-14 h-14 rounded-full bg-rose-100 flex items-center justify-center">
+                  <Trash2 size={28} className="text-rose-600" />
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">
+                Xóa nhân viên?
+              </h3>
+              <p className="text-slate-600 text-center mb-6">
+                Bạn chắc chắn muốn xóa <strong>{staffDeleteConfirm.userName}</strong>? Hành động này không thể hoàn tác.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setStaffDeleteConfirm({ isOpen: false, userId: null, userName: '' })}
+                  className="flex-1 py-3 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={confirmDeleteStaff}
+                  disabled={isDeletingStaff}
+                  className="flex-1 py-3 font-bold text-white bg-rose-500 rounded-xl hover:bg-rose-600 transition-colors disabled:opacity-70"
+                >
+                  {isDeletingStaff ? 'Xóa...' : 'Xóa'}
                 </button>
               </div>
             </motion.div>
