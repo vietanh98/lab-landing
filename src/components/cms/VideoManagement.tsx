@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Eye, ArrowUpRight, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 interface VideoManagementProps {
   videos: any[];
@@ -8,6 +9,9 @@ interface VideoManagementProps {
 }
 
 const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, onDeleteVideo }) => {
+  const location = useLocation() as any;
+  const storeId: string | number | undefined = location?.state?.filterStoreId;
+  const storeName: string | undefined = location?.state?.filterStoreName;
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +21,8 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
   const [searchTitle, setSearchTitle] = useState('');
   const [filterStore, setFilterStore] = useState('');
   const [filterQr1, setFilterQr1] = useState('');
+  const hasFetchedRef = useRef(false);
+  const lastQueryRef = useRef<string>('');
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -24,7 +30,7 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
       setError(null);
       try {
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-        const endpoint = `${apiBase}/api/v1/video/list?page=${page}&per_page=${perPage}`;
+        const endpoint = `${apiBase}/api/v1/video/list?page=${page}&per_page=${perPage}${storeId ? `&store_id=${storeId}` : ''}`;
         const headers: Record<string, string> = {
           Accept: 'application/json, text/plain, */*',
         };
@@ -75,8 +81,14 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
         setLoading(false);
       }
     };
+    const key = `${page}:${perPage}:${storeId ?? ''}`;
+    if (hasFetchedRef.current && lastQueryRef.current === key) {
+      return;
+    }
+    hasFetchedRef.current = true;
+    lastQueryRef.current = key;
     fetchVideos();
-  }, [page, perPage]);
+  }, [page, perPage, storeId]);
 
   const stores = Array.from(new Set(items.map((v) => v.store_name).filter(Boolean)));
   const mbToBytes = (mb: number) => Math.round(mb * 1024 * 1024);
@@ -99,12 +111,17 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
     const qrOk = !filterQr1 || String(v.qr_code_1 || '').toLowerCase().includes(filterQr1.toLowerCase());
     return titleOk && storeOk && qrOk;
   });
+  const sortedVideos = [...filteredVideos].sort((a: any, b: any) =>
+    String(a.store_name || '').localeCompare(String(b.store_name || ''))
+  );
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden h-[76vh] flex flex-col">
       <div className="p-4 flex flex-col gap-3 border-b border-slate-100">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-bold text-slate-900">Quản lý Video</div>
+          <div className="text-sm font-bold text-slate-900">
+            Quản lý Video {storeName ? `• ${storeName}` : ''}
+          </div>
           <div className="flex items-center gap-2">
             <select
               value={perPage}
@@ -157,26 +174,22 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
       {error && (
         <div className="px-6 py-3 text-sm text-rose-600 bg-rose-50 border-t border-rose-100">{error}</div>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+      <div className="overflow-x-auto flex-1 min-h-0">
+        <div className="h-full overflow-y-auto">
+          <table className="w-full text-left">
+          <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm shadow-sm">
+            <tr className="text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
               <th className="px-6 py-4">Mã video</th>
               <th className="px-6 py-4">Cửa hàng</th>
               <th className="px-6 py-4">Thiết bị</th>
               <th className="px-6 py-4">Tiêu đề</th>
-              <th className="px-6 py-4">QR Code 1</th>
-              <th className="px-6 py-4">QR Code 2</th>
-              <th className="px-6 py-4">Đường dẫn file</th>
-              <th className="px-6 py-4">Ảnh thumbnail</th>
+              <th className="px-6 py-4">Mã vận đơn</th>
               <th className="px-6 py-4">Dung lượng</th>
               <th className="px-6 py-4">Thời lượng</th>
-              <th className="px-6 py-4">Tự cấu hình</th>
               <th className="px-6 py-4">Thời gian quay</th>
               <th className="px-6 py-4">Kết thúc</th>
               <th className="px-6 py-4">Tự xóa</th>
               <th className="px-6 py-4">Số ngày giữ</th>
-              <th className="px-6 py-4">Logo overlay</th>
               <th className="px-6 py-4">Tạo lúc</th>
               <th className="px-6 py-4 text-right">Thao tác</th>
             </tr>
@@ -184,10 +197,10 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
           <tbody className="divide-y divide-slate-100">
             {loading && (
               <tr>
-                <td colSpan={18} className="px-6 py-6 text-center text-slate-500 text-sm">Đang tải dữ liệu...</td>
+                <td colSpan={13} className="px-6 py-6 text-center text-slate-500 text-sm">Đang tải dữ liệu...</td>
               </tr>
             )}
-            {!loading && filteredVideos.map((vid: any, i: number) => (
+            {!loading && sortedVideos.map((vid: any, i: number) => (
               <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                 <td className="px-6 py-4 text-sm text-slate-900 font-bold">{String(vid.id)}</td>
                 <td className="px-6 py-4 text-sm text-slate-600">{String(vid.store_name ?? '')}</td>
@@ -196,16 +209,9 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                   <span className="inline-block max-w-48 truncate align-middle">{String(vid.title ?? '')}</span>
                 </td>
                 <td className="px-6 py-4 text-sm">
-                  <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700">{String(vid.qr_code_1 ?? '') || '—'}</span>
-                </td>
-                <td className="px-6 py-4 text-sm">
-                  <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700">{String(vid.qr_code_2 ?? '') || '—'}</span>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-500">
-                  <span className="inline-block max-w-48 truncate align-middle">{String(vid.file_path ?? '')}</span>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-500">
-                  <span className="inline-block max-w-40 truncate align-middle">{String(vid.thumbnail_path ?? '')}</span>
+                  <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700">
+                    {String(vid.qr_code_1 ?? vid.qr_code_2 ?? '') || '—'}
+                  </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500">
                   <div className="flex items-center gap-2">
@@ -214,24 +220,16 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500">{String(vid.duration_seconds ?? '')}</td>
-                <td className="px-6 py-4 text-sm">
-                  <span className={`px-2 py-1 rounded-lg text-xs font-bold ${vid.is_auto_config ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>{vid.is_auto_config ? 'Có' : 'Không'}</span>
-                </td>
                 <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.recorded_at)}</td>
                 <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.finished_at)}</td>
                 <td className="px-6 py-4 text-sm">
                   <span className={`px-2 py-1 rounded-lg text-xs font-bold ${vid.is_auto_delete ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'}`}>{vid.is_auto_delete ? 'Có' : 'Không'}</span>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500">{String(vid.keep_days ?? '')}</td>
-                <td className="px-6 py-4 text-sm">
-                  <span className={`px-2 py-1 rounded-lg text-xs font-bold ${vid.has_logo_overlay ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-600'}`}>{vid.has_logo_overlay ? 'Có' : 'Không'}</span>
-                </td>
                 <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.created_at)}</td>
-                <td className="px-6 py-4 text-sm text-slate-500">{String(vid.updated_at ?? '')}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <button 
-                      onClick={() => onViewVideo(vid)}
                     >
                       <Eye size={18} />
                     </button>
@@ -249,7 +247,8 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
       <div className="p-4 flex items-center justify-center gap-4 border-t border-slate-100">
         <button

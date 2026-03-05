@@ -54,6 +54,8 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showQR, setShowQR] = useState<{ isOpen: boolean, plan: string | null }>({ isOpen: false, plan: null });
   const [toasts, setToasts] = useState<Array<{ id: string; type: 'success' | 'error'; message: string }>>([]);
+  const meLoadedRef = React.useRef(false);
+  const [dashboardMetrics, setDashboardMetrics] = useState<any | null>(null);
 
   // Helper to show toast notifications
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -80,7 +82,119 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
   const [storeRefresh, setStoreRefresh] = useState(0); // increment to trigger reload
   const [staff, setStaff] = useState<any[]>([]);
   const staffLoadedRef = React.useRef(false);
+  const videosLoadedRef = React.useRef(false);
+  const storesLoadedRef = React.useRef(false);
 
+  // Load current user via auth/me
+  React.useEffect(() => {
+    const fetchMe = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/auth/me`;
+        const headers: Record<string, string> = {
+          Accept: 'application/json, text/plain, */*',
+        };
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        headers['X-Timestamp'] = Date.now().toString();
+        const res = await fetch(endpoint, { method: 'GET', headers });
+        const data = await res.json().catch(() => ({}));
+        const ok = res.ok && (data?.status === true || data?.status_code === 0 || data?.success === true);
+        if (!ok) {
+          return;
+        }
+        const infoCandidate = data?.data?.user ?? data?.data ?? data?.user ?? data;
+        if (infoCandidate && typeof infoCandidate === 'object') {
+          try {
+            localStorage.setItem('user_info', JSON.stringify(infoCandidate));
+          } catch {}
+        }
+        const dash = data?.data?.dashboard;
+        if (dash && typeof dash === 'object') {
+          setDashboardMetrics(dash);
+        }
+      } catch {}
+    };
+    if (meLoadedRef.current) return;
+    meLoadedRef.current = true;
+    fetchMe();
+  }, []);
+
+  // Load recent videos for Dashboard
+  React.useEffect(() => {
+    const fetchVideos = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/video/list?page=1&per_page=10`;
+        const headers: Record<string, string> = {
+          Accept: 'application/json, text/plain, */*',
+        };
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        headers['X-Timestamp'] = Date.now().toString();
+        const res = await fetch(endpoint, { method: 'GET', headers });
+        const data = await res.json().catch(() => ({}));
+        const ok = res.ok && (data?.status === true || data?.status_code === 0);
+        if (!ok) {
+          return;
+        }
+        const candidate =
+          data?.data?.data ??
+          data?.data?.items ??
+          data?.data ??
+          data?.videos ??
+          data ??
+          [];
+        const list = Array.isArray(candidate)
+          ? candidate
+          : (Array.isArray(candidate?.data) ? candidate.data : []);
+        const mapped = list.map((v: any) => {
+          const bytes = v.size_bytes;
+          const sizeStr = typeof bytes === 'number' ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : '';
+          return {
+            id: String(v.id ?? v.video_id ?? v.uuid ?? ''),
+            orderId: String(v.qr_code_1 ?? v.qr_code_2 ?? v.order_id ?? v.title ?? ''),
+            store: String(v.store_name ?? v.store ?? ''),
+            time: v.recorded_at ?? v.created_at ?? '',
+            size: sizeStr,
+            url: v.file_path ?? '',
+          };
+        });
+        setVideos(mapped);
+      } catch {}
+    };
+    if (videosLoadedRef.current) return;
+    videosLoadedRef.current = true;
+    fetchVideos();
+  }, []);
+
+  // Load stores list for Dashboard counts
+  React.useEffect(() => {
+    const fetchStores = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/store?page=1&per_page=10`;
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        headers['X-Timestamp'] = Date.now().toString();
+        const res = await fetch(endpoint, { method: 'GET', headers });
+        const data = await res.json().catch(() => ({}));
+        const ok = res.ok && (data?.status === true || data?.status_code === 0);
+        if (!ok) {
+          return;
+        }
+        const listCandidate = data?.data?.data ?? data?.data ?? data?.stores ?? data ?? [];
+        const items = Array.isArray(listCandidate)
+          ? listCandidate
+          : (Array.isArray(listCandidate?.data) ? listCandidate.data : []);
+        setStores(items);
+      } catch {}
+    };
+    if (storesLoadedRef.current) return;
+    storesLoadedRef.current = true;
+    fetchStores();
+  }, []);
   // Load staff list from API
   React.useEffect(() => {
     const fetchStaff = async () => {
@@ -181,6 +295,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         showToast('Xóa cửa hàng không thành công', 'error');
       } else {
         setStores(stores.filter(s => s.id !== deleteConfirm.storeId));
+        setStoreRefresh(r => r + 1);
         showToast('Xóa cửa hàng thành công', 'success');
       }
     } catch (err) {
@@ -241,7 +356,6 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
     const name = formData.get('name') as string;
-    const logo = formData.get('logo') as string;
     const position = Number(formData.get('position')) || 0;
 
     // derive user_id from stored user_info if available, otherwise decode JWT
@@ -264,29 +378,30 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     }
 
     if (storeModal.store) {
-      // Edit via API (call PUT)
+      // Edit via API (multipart PUT)
       try {
-        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         const endpoint = `${apiBase}/api/v1/store/${storeModal.store.id}`;
         const token = localStorage.getItem('token');
 
-        const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+        const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
         headers['X-Timestamp'] = Date.now().toString();
 
         const numericUserId = user_id ? Number(user_id) : undefined;
-        const body: any = {
-          name,
-          logo,
-          position,
-          id: storeModal.store.id,
-        };
-        if (numericUserId !== undefined && !isNaN(numericUserId)) body.user_id = numericUserId;
+        const req = new FormData();
+        req.append('name', name);
+        req.append('position', String(position));
+        if (numericUserId !== undefined && !isNaN(numericUserId)) req.append('user_id', String(numericUserId));
+        const files = formData.getAll('images');
+        files.forEach((f) => {
+          if (f instanceof File) req.append('images', f);
+        });
 
         const resp = await fetch(endpoint, {
           method: 'PUT',
           headers,
-          body: JSON.stringify(body),
+          body: req,
         });
         const respData = await resp.json().catch(() => ({}));
 
@@ -299,30 +414,31 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           if (respData?.data) {
             setStores(stores.map(s => (s.id === storeModal.store.id ? respData.data : s)));
           } else {
-            setStores(stores.map(s => s.id === storeModal.store.id ? { ...s, name, logo, position } : s));
+            setStores(stores.map(s => s.id === storeModal.store.id ? { ...s, name, position } : s));
           }
+          setStoreRefresh(r => r + 1);
         }
       } catch (err) {
         console.error('Failed to update store', err);
         showToast('Lỗi khi gọi API: ' + (err as any).toString(), 'error');
       }
     } else {
-      // Add via API
+      // Add via API (multipart POST)
       try {
-        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         const endpoint = `${apiBase}/api/v1/store`;
         // ensure user_id is numeric
         const numericUserId = user_id ? Number(user_id) : undefined;
-        const body: any = {
-          name,
-          logo,
-          position
-        };
-        if (numericUserId !== undefined && !isNaN(numericUserId)) {
-          body.user_id = numericUserId;
-        }
+        const req = new FormData();
+        req.append('name', name);
+        req.append('position', String(position));
+        if (numericUserId !== undefined && !isNaN(numericUserId)) req.append('user_id', String(numericUserId));
+        const files = formData.getAll('images');
+        files.forEach((f) => {
+          if (f instanceof File) req.append('images', f);
+        });
 
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
         const token = localStorage.getItem('token');
         if (token) headers['Authorization'] = `Bearer ${token}`;
         headers['X-Timestamp'] = Date.now().toString();
@@ -330,7 +446,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         const resp = await fetch(endpoint, {
           method: 'POST',
           headers,
-          body: JSON.stringify(body)
+          body: req
         });
         const respData = await resp.json();
         if (!resp.ok || !(respData?.status === true || respData?.status_code === 0)) {
@@ -343,7 +459,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           if (respData?.data) {
             setStores(prev => [...prev, respData.data]);
           } else {
-            setStores(prev => [...prev, { id: `ST${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`, name, logo, position, status: 'Hoạt động' }]);
+            setStores(prev => [...prev, { id: `ST${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`, name, position, status: 'Hoạt động' }]);
           }
         }
       } catch (err) {
@@ -515,6 +631,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               videos={videos} 
               stores={stores} 
               staff={staff} 
+              metrics={dashboardMetrics}
               onViewVideo={(vid) => setVideoModal({ isOpen: true, video: vid })}
               onDeleteVideo={handleDeleteVideo}
               onUpgrade={() => {
@@ -552,6 +669,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               showUpgrade={showUpgrade}
               setShowUpgrade={setShowUpgrade}
               pricingPlans={pricingPlans}
+              currentSubscriptions={dashboardMetrics?.subscriptions || []}
               onPay={() => {
                 // Reload subscription page instead of showing QR
                 navigate('/cms/subscription');
@@ -692,13 +810,41 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Logo URL</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Logo (ảnh)</label>
                   <input
-                    name="logo"
-                    defaultValue={storeModal.store?.logo}
+                    name="images"
+                    type="file"
+                    multiple={!storeModal.store}
+                    accept="image/*"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                    placeholder="https://example.com/logo.png"
                   />
+                  <p className="mt-1 text-[11px] text-slate-400">Chọn 1 hoặc nhiều ảnh logo để tải lên</p>
+                  {storeModal.store ? (
+                    (() => {
+                      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+                      const base = apiBase.replace(/\/+$/,'');
+                      const candidate = Array.isArray(storeModal.store?.images) && storeModal.store?.images.length
+                        ? storeModal.store.images[0]
+                        : storeModal.store?.logo;
+                      const src = typeof candidate === 'string'
+                        ? ((candidate.startsWith('http://') || candidate.startsWith('https://'))
+                          ? candidate
+                          : `${base}${candidate.startsWith('/') ? candidate : `/${candidate}`}`)
+                        : '';
+                      return (
+                        <div className="mt-3 flex items-center gap-3">
+                          <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
+                            {src ? (
+                              <img src={src} alt={storeModal.store?.name || 'logo'} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="text-slate-400 text-xs">No logo</div>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-500">Ảnh hiện tại</span>
+                        </div>
+                      );
+                    })()
+                  ) : null}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Vị trí</label>
@@ -1072,13 +1218,17 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     full_name: '',
     phone: '',
     password: '',
-    confirm_password: ''
+    confirm_password: '',
+    subscription_id: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [plans, setPlans] = useState<Array<{ id: number; name: string; price?: number }>>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [plansError, setPlansError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  // luôn gọi hooks trước khi return để không thay đổi thứ tự hook giữa các lần render
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -1110,6 +1260,9 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
       if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) {
         newErrors.email = 'Email không hợp lệ';
       }
+      if (!formData.subscription_id) {
+        newErrors.subscription_id = 'Vui lòng chọn gói dịch vụ';
+      }
     } else {
       // Login mode validation
       if (!formData.password) {
@@ -1120,6 +1273,45 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  React.useEffect(() => {
+    const fetchPlans = async () => {
+      setPlansLoading(true);
+      setPlansError(null);
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/subcription?page=1&per_page=50`;
+        const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        headers['X-Timestamp'] = Date.now().toString();
+        const res = await fetch(endpoint, { headers });
+        const data = await res.json().catch(() => ({}));
+        const ok = res.ok && (data?.status === true || data?.status_code === 0);
+        if (!ok) {
+          setPlansError(data?.message || 'Không thể tải danh sách gói');
+          setPlans([]);
+          return;
+        }
+        const list = Array.isArray(data?.data?.data) ? data.data.data : Array.isArray(data?.data) ? data.data : [];
+        const mapped = list.map((p: any) => ({ id: Number(p.id), name: String(p.name || ''), price: Number(p.price || 0) }));
+        setPlans(mapped);
+        if (mapped.length && !formData.subscription_id) {
+          setFormData(prev => ({ ...prev, subscription_id: String(mapped[0].id) }));
+        }
+      } catch (err) {
+        setPlansError('Không thể kết nối đến máy chủ');
+        setPlans([]);
+      } finally {
+        setPlansLoading(false);
+      }
+    };
+    if (isOpen && currentMode === 'register') {
+      fetchPlans();
+    }
+  }, [isOpen, currentMode]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1283,6 +1475,39 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                     placeholder="name@company.com" 
                   />
                   {errors.email && <p className="text-red-500 text-[10px] mt-1">{errors.email}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Gói dịch vụ</label>
+                  <select
+                    name="subscription_id"
+                    value={formData.subscription_id}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, subscription_id: e.target.value }));
+                      if (errors.subscription_id) {
+                        setErrors(prev => {
+                          const n = { ...prev };
+                          delete n.subscription_id;
+                          return n;
+                        });
+                      }
+                    }}
+                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.subscription_id ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                  >
+                    {plansLoading ? (
+                      <option>Đang tải gói...</option>
+                    ) : plansError ? (
+                      <option disabled>{plansError}</option>
+                    ) : plans.length ? (
+                      plans.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}{typeof p.price === 'number' ? ` • ${(p.price * 1000).toLocaleString('vi-VN')}đ/tháng` : ''}
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>Không có gói</option>
+                    )}
+                  </select>
+                  {errors.subscription_id && <p className="text-red-500 text-[10px] mt-1">{errors.subscription_id}</p>}
                 </div>
               </>
             )}

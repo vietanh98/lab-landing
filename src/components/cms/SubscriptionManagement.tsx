@@ -17,9 +17,19 @@ interface SubscriptionManagementProps {
   setShowUpgrade: (show: boolean) => void;
   onPay: (plan: SubscriptionPlan) => void;
   pricingPlans?: any[];
+  currentSubscriptions?: Array<{
+    subscription_id: number;
+    plan_id: number;
+    plan_name: string;
+    max_stores: number;
+    max_storage_gb: number;
+    max_devices: number;
+    price: number;
+    status: string;
+  }>;
 }
 
-const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpgrade, setShowUpgrade, onPay, pricingPlans: initialPlans }) => {
+const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpgrade, setShowUpgrade, onPay, pricingPlans: initialPlans, currentSubscriptions }) => {
   const [subscriptions, setSubscriptions] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,8 +82,34 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
               <div>
                 <p className="text-brand font-bold text-sm uppercase tracking-widest mb-2">Gói hiện tại</p>
-                <h2 className="text-4xl font-display font-bold mb-2">Chuyên nghiệp</h2>
-                <p className="text-slate-400">Hết hạn vào ngày 25/03/2024 (Còn 24 ngày)</p>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-4xl font-display font-bold">
+                    {currentSubscriptions && currentSubscriptions.length ? currentSubscriptions[0].plan_name : 'Chưa có gói'}
+                  </h2>
+                  {currentSubscriptions && currentSubscriptions.length ? (
+                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${currentSubscriptions[0].status === 'active' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/80'}`}>
+                      {currentSubscriptions[0].status}
+                    </span>
+                  ) : null}
+                </div>
+                {currentSubscriptions && currentSubscriptions.length ? (
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <span className="px-3 py-1 rounded-full bg-white/10 text-white text-xs font-bold">
+                      {(currentSubscriptions[0].price * 1000).toLocaleString('vi-VN')}đ/tháng
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-white/10 text-white text-xs font-bold">
+                      {currentSubscriptions[0].max_stores} cửa hàng
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-white/10 text-white text-xs font-bold">
+                      {currentSubscriptions[0].max_storage_gb} GB
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-white/10 text-white text-xs font-bold">
+                      {currentSubscriptions[0].max_devices} thiết bị
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-white/70 text-sm">Bạn chưa đăng ký gói nào</p>
+                )}
               </div>
               <button 
                 onClick={() => setShowUpgrade(true)}

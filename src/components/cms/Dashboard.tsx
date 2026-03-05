@@ -5,31 +5,45 @@ interface DashboardProps {
   videos: any[];
   stores: any[];
   staff: any[];
+  metrics?: {
+    total_stores?: number;
+    total_videos?: number;
+    total_size_bytes?: number;
+    total_employees?: number;
+    subscriptions?: any;
+  } | null;
   onViewVideo: (video: any) => void;
   onDeleteVideo: (id: string) => void;
   onUpgrade: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, onViewVideo, onDeleteVideo, onUpgrade }) => {
+const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, onViewVideo, onDeleteVideo, onUpgrade }) => {
+  const toHumanSize = (bytes?: number) => {
+    if (!bytes || typeof bytes !== 'number' || isNaN(bytes)) return '0 GB';
+    const gb = bytes / (1024 * 1024 * 1024);
+    return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
+  };
+  const totalVideos = typeof metrics?.total_videos === 'number' ? metrics!.total_videos : videos.length;
+  const totalStores = typeof metrics?.total_stores === 'number' ? metrics!.total_stores : stores.length;
+  const totalEmployees = typeof metrics?.total_employees === 'number' ? metrics!.total_employees : staff.length;
+  const totalSizeStr = toHumanSize(metrics?.total_size_bytes);
+
   return (
     <div className="space-y-8">
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
-          { label: 'Tổng video', value: videos.length.toString(), icon: <Video className="text-brand" />, trend: '+12%', color: 'bg-brand/10' },
-          { label: 'Cửa hàng', value: stores.length.toString().padStart(2, '0'), icon: <Store className="text-emerald-600" />, trend: '0%', color: 'bg-emerald-100' },
-          { label: 'Nhân viên', value: staff.length.toString().padStart(2, '0'), icon: <Users className="text-amber-600" />, trend: '+1', color: 'bg-amber-100' },
-          { label: 'Dung lượng', value: '45.2 GB', icon: <Box className="text-rose-600" />, trend: '75%', color: 'bg-rose-100' },
+          { label: 'Tổng video', value: String(totalVideos), icon: <Video className="text-brand" />, trend: '', color: 'bg-brand/10' },
+          { label: 'Cửa hàng', value: String(totalStores), icon: <Store className="text-emerald-600" />, trend: '', color: 'bg-emerald-100' },
+          { label: 'Nhân viên', value: String(totalEmployees), icon: <Users className="text-amber-600" />, trend: '', color: 'bg-amber-100' },
+          { label: 'Dung lượng', value: totalSizeStr, icon: <Box className="text-rose-600" />, trend: '', color: 'bg-rose-100' },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className={`w-12 h-12 ${stat.color} rounded-2xl flex items-center justify-center`}>
                 {stat.icon}
               </div>
-              <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                <TrendingUp size={14} />
-                {stat.trend}
-              </span>
+              <span className="text-xs font-bold text-slate-400"></span>
             </div>
             <p className="text-sm font-medium text-slate-500">{stat.label}</p>
             <h3 className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</h3>

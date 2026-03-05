@@ -17,6 +17,14 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
   const hasFetchedRef = useRef(false);
   const lastRefreshKeyRef = useRef<number | undefined>(undefined);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const mediaBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  const toAbs = (p: string) => {
+    if (!p) return '';
+    if (p.startsWith('http://') || p.startsWith('https://')) return p;
+    const base = mediaBase.replace(/\/+$/,'');
+    const path = p.startsWith('/') ? p : `/${p}`;
+    return `${base}${path}`;
+  };
 
   useEffect(() => {
     const fetchStores = async () => {
@@ -125,13 +133,17 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
               onClick={() => setOpenMenuId(null)}
             >
               <div className="flex gap-4">
-                {store.logo ? (
-                  <img src={store.logo} alt={store.name || 'logo'} className="w-12 h-12 object-cover rounded-2xl" />
-                ) : (
-                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
-                    <Store size={24} />
-                  </div>
-                )}
+                {(() => {
+                  const candidate = Array.isArray(store.images) && store.images.length ? store.images[0] : store.logo;
+                  const src = typeof candidate === 'string' ? toAbs(candidate) : '';
+                  return src ? (
+                    <img src={src} alt={store.name || 'logo'} className="w-12 h-12 object-cover rounded-2xl" />
+                  ) : (
+                    <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
+                      <Store size={24} />
+                    </div>
+                  );
+                })()}
                 <div>
                   <h3 className="font-bold text-slate-900">{store.name}</h3>
                   {store.user_name && <p className="text-xs text-slate-500 mt-0.5">owner: {store.user_name}</p>}
