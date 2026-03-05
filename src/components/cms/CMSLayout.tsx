@@ -3,7 +3,6 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { 
   Box, 
   LayoutDashboard, 
-  Video, 
   Store, 
   Users, 
   PackageCheck, 
@@ -27,8 +26,7 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
 
   const sidebarItems = [
     { id: 'dashboard', path: '/cms', icon: <LayoutDashboard size={20} />, label: 'Tổng quan' },
-    { id: 'videos', path: '/cms/videos', icon: <Video size={20} />, label: 'Quản lý video đã quay' },
-    { id: 'stores', path: '/cms/stores', icon: <Store size={20} />, label: 'Quản lý cửa hàng' },
+    { id: 'stores-videos', path: '/cms/stores', icon: <Store size={20} />, label: 'Quản lý cửa hàng và video' },
     { id: 'staff', path: '/cms/staff', icon: <Users size={20} />, label: 'Quản lý nhân viên' },
     { id: 'subscription', path: '/cms/subscription', icon: <PackageCheck size={20} />, label: 'Quản lý gói đã đăng ký' },
   ];
@@ -115,13 +113,7 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
               <p className="text-slate-500 text-sm mt-1">Quản lý hệ thống LabBox của bạn</p>
             </div>
             <div className="flex gap-3">
-              {activeItem.id === 'videos' && (
-                <button className="bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-brand/20 flex items-center gap-2 transition-all active:scale-95">
-                  <Plus size={20} />
-                  Quay video mới
-                </button>
-              )}
-              {activeItem.id === 'stores' && (
+              {activeItem.id === 'stores-videos' && (
                 <button 
                   onClick={onAddStore}
                   className="bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-brand/20 flex items-center gap-2 transition-all active:scale-95"

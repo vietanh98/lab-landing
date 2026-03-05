@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Store, Edit, Trash2, Plus } from 'lucide-react';
+import { Store, Edit, Trash2, Plus, MoreVertical } from 'lucide-react';
 
 interface StoreManagementProps {
   stores: any[];
@@ -7,14 +7,16 @@ interface StoreManagementProps {
   onEditStore: (store: any) => void;
   onDeleteStore: (id: string) => void;
   onAddStore: () => void;
+  onViewStoreVideos?: (store: any) => void;
 }
 
-const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, onEditStore, onDeleteStore, onAddStore }) => {
+const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, onEditStore, onDeleteStore, onAddStore, onViewStoreVideos }) => {
   const [localStores, setLocalStores] = useState<any[]>(stores || []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasFetchedRef = useRef(false);
   const lastRefreshKeyRef = useRef<number | undefined>(undefined);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStores = async () => {
@@ -117,7 +119,11 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
       {!loading && !error && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {localStores.map((store, i) => (
-            <div key={store.id || i} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-start justify-between group">
+            <div 
+              key={store.id || i} 
+              className="relative bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-start justify-between group"
+              onClick={() => setOpenMenuId(null)}
+            >
               <div className="flex gap-4">
                 {store.logo ? (
                   <img src={store.logo} alt={store.name || 'logo'} className="w-12 h-12 object-cover rounded-2xl" />
@@ -142,19 +148,36 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
                   </span>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                <button 
-                  onClick={() => onEditStore && onEditStore(store)}
-                  className="p-2 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg" title="Sửa cửa hàng"
+              <div className="absolute top-4 right-4" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setOpenMenuId(prev => (prev === String(store.id) ? null : String(store.id)))}
+                  className="p-2 rounded-full text-slate-500 hover:text-slate-700 hover:bg-slate-100 shadow-sm"
+                  title="Thao tác"
                 >
-                  <Edit size={18} />
+                  <MoreVertical size={18} />
                 </button>
-                <button 
-                  onClick={() => handleDelete(store.id)}
-                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg" title="Xóa cửa hàng"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {openMenuId === String(store.id) && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-lg z-10">
+                    <button
+                      onClick={() => { setOpenMenuId(null); onEditStore && onEditStore(store); }}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 text-slate-700 flex items-center gap-2 rounded-t-2xl"
+                    >
+                      <Edit size={16} /> Sửa cửa hàng
+                    </button>
+                    <button
+                      onClick={() => { setOpenMenuId(null); handleDelete(store.id); }}
+                      className="w-full text-left px-4 py-3 hover:bg-rose-50 text-rose-600 flex items-center gap-2"
+                    >
+                      <Trash2 size={16} /> Xóa cửa hàng
+                    </button>
+                    <button
+                      onClick={() => { setOpenMenuId(null); onViewStoreVideos && onViewStoreVideos(store); }}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 text-slate-700 flex items-center gap-2 rounded-b-2xl"
+                    >
+                      🎥 Danh sách video của cửa hàng
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}

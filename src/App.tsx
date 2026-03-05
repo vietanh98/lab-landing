@@ -87,26 +87,18 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
       try {
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
         const endpoint = `${apiBase}/api/v1/users?page=1&per_page=10`;
-
-        const headers: Record<string, string> = {
-          Accept: 'application/json, text/plain, */*',
-        };
+        const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
         const token = localStorage.getItem('token');
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         headers['X-Timestamp'] = Date.now().toString();
-
         const res = await fetch(endpoint, { method: 'GET', headers });
         const data = await res.json().catch(() => ({}));
-
         const ok = res.ok && (data?.status === true || data?.status_code === 0);
         if (!ok) {
           console.error('Failed to load staff', data);
           showToast('Tải danh sách nhân viên không thành công', 'error');
           return;
         }
-
         const rawList = Array.isArray(data?.data?.items)
           ? data.data.items
           : Array.isArray(data?.data)
@@ -114,13 +106,9 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           : Array.isArray(data?.users)
           ? data.users
           : [];
-
         if (!Array.isArray(rawList)) return;
-
         const mapped = rawList.map((u: any) => ({
-          // giữ nguyên toàn bộ field API trả về
           ...u,
-          // chuẩn hóa thêm một số field dùng để hiển thị
           id:
             (u.id !== undefined && u.id !== null
               ? String(u.id)
@@ -132,20 +120,19 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           store: u.store || u.store_id || 'CN1',
           status: u.status || (u.is_active === false ? 'Offline' : 'Online'),
         }));
-
         setStaff(mapped);
       } catch (err) {
         console.error('Error fetching staff', err);
         showToast('Không thể tải danh sách nhân viên', 'error');
       }
     };
-
-    if (staffLoadedRef.current) {
+    const isStaffRoute = location.pathname === '/cms/staff';
+    if (!isStaffRoute || staffLoadedRef.current) {
       return;
     }
     staffLoadedRef.current = true;
     fetchStaff();
-  }, []);
+  }, [location.pathname]);
 
   // Modal states
   const [videoModal, setVideoModal] = useState<{ isOpen: boolean, video: any | null }>({ isOpen: false, video: null });
@@ -550,6 +537,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               onEditStore={(s) => setStoreModal({ isOpen: true, store: s })}
               onDeleteStore={handleDeleteStore}
               onAddStore={() => setStoreModal({ isOpen: true, store: null })}
+              onViewStoreVideos={(s) => navigate('/cms/videos', { state: { filterStoreId: s.id, filterStoreName: s.name, page: 1, per_page: 10 } })}
             />
           } />
           <Route path="staff" element={
