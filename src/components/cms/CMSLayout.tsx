@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { 
   Box, 
@@ -23,6 +23,9 @@ interface CMSLayoutProps {
 const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff }) => {
   const location = useLocation();
   const currentPath = location.pathname;
+  const [userName, setUserName] = useState<string>('—');
+  const [planName, setPlanName] = useState<string>('—');
+  const [avatarText, setAvatarText] = useState<string>('LB');
 
   const sidebarItems = [
     { id: 'dashboard', path: '/cms', icon: <LayoutDashboard size={20} />, label: 'Tổng quan' },
@@ -32,6 +35,82 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
   ];
 
   const activeItem = sidebarItems.find(item => item.path === currentPath) || sidebarItems[0];
+
+  useEffect(() => {
+    const setFromLocal = () => {
+      try {
+        const raw = localStorage.getItem('user_info');
+        if (!raw) return;
+        const info = JSON.parse(raw);
+        const name =
+          info.full_name ||
+          info.name ||
+          info.username ||
+          info.email ||
+          '—';
+        setUserName(String(name));
+        const rolesArr = Array.isArray(info.roles) ? info.roles : [];
+        const rolesDesc = rolesArr.length ? rolesArr.map((r: any) => r?.description || r?.name).filter(Boolean).join(' • ') : '—';
+        setPlanName(String(rolesDesc));
+        const initials = String(name)
+          .split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((s: string) => s[0])
+          .join('')
+          .toUpperCase();
+        setAvatarText(initials || 'LB');
+      } catch {}
+    };
+    const fetchMe = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/auth/me`;
+        const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        headers['X-Timestamp'] = Date.now().toString();
+        const res = await fetch(endpoint, { headers });
+        const data = await res.json().catch(() => ({}));
+        const ok = res.ok && (data?.status === true || data?.status_code === 0 || data?.success === true);
+        if (!ok) {
+          setFromLocal();
+          return;
+        }
+        const info = data?.data?.user ?? data?.data ?? data?.user ?? {};
+        const name =
+          info.full_name ||
+          info.name ||
+          info.username ||
+          info.email ||
+          '—';
+        setUserName(String(name));
+        const rolesArr = Array.isArray(data?.data?.roles)
+          ? data.data.roles
+          : Array.isArray(info.roles)
+          ? info.roles
+          : [];
+        const rolesDesc = rolesArr.length
+          ? rolesArr.map((r: any) => r?.description || r?.name).filter(Boolean).join(' • ')
+          : '—';
+        setPlanName(String(rolesDesc));
+        try {
+          localStorage.setItem('user_info', JSON.stringify({ ...info, roles: rolesArr }));
+        } catch {}
+        const initials = String(name)
+          .split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((s: string) => s[0])
+          .join('')
+          .toUpperCase();
+        setAvatarText(initials || 'LB');
+      } catch {
+        setFromLocal();
+      }
+    };
+    fetchMe();
+  }, []);
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
@@ -93,11 +172,11 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
             <div className="h-8 w-[1px] bg-slate-200 mx-2" />
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900">Shop Mẹ Bé</p>
-                <p className="text-xs text-slate-500">Gói Chuyên nghiệp</p>
+                <p className="text-sm font-bold text-slate-900">{userName}</p>
+                <p className="text-xs text-slate-500">{planName}</p>
               </div>
               <div className="w-10 h-10 bg-brand/10 rounded-full flex items-center justify-center text-brand font-bold">
-                MB
+                {avatarText}
               </div>
             </div>
           </div>

@@ -36,7 +36,9 @@ import {
   Eye,
   TrendingUp,
   ArrowUpRight,
-  QrCode
+  QrCode,
+  Lock,
+  ChevronLeft
 } from 'lucide-react';
 
 // --- CMS Components ---
@@ -1574,6 +1576,59 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
 };
 
 const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuccess }: any) => {
+  const slides = (import.meta.env.VITE_HERO_SLIDES 
+    ? String(import.meta.env.VITE_HERO_SLIDES).split(',').map(s => s.trim()).filter(Boolean) 
+    : [import.meta.env.VITE_HERO_IMAGE_URL || "/hero-demo.png"]
+  ) as string[];
+  const [slideIndex, setSlideIndex] = React.useState(0);
+  const slideRef = React.useRef<HTMLDivElement>(null);
+  const [pricingPlans, setPricingPlans] = React.useState<Array<{ id: number; name: string; price?: number }>>([]);
+  const [pricingError, setPricingError] = React.useState<string | null>(null);
+  const [pricingLoading, setPricingLoading] = React.useState(false);
+  React.useEffect(() => {
+    if (slides.length <= 1) return;
+    const t = setInterval(() => {
+      setSlideIndex(prev => (prev + 1) % slides.length);
+    }, 5000);
+    return () => clearInterval(t);
+  }, [slides.length]);
+  React.useEffect(() => {
+    const el = slideRef.current;
+    if (!el) return;
+    const w = el.clientWidth;
+    el.scrollTo({ left: w * slideIndex, behavior: 'smooth' });
+  }, [slideIndex]);
+  React.useEffect(() => {
+    const fetchPlans = async () => {
+      setPricingLoading(true);
+      setPricingError(null);
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/subcription?page=1&per_page=50`;
+        const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        headers['X-Timestamp'] = Date.now().toString();
+        const res = await fetch(endpoint, { headers });
+        const data = await res.json().catch(() => ({}));
+        const ok = res.ok && (data?.status === true || data?.status_code === 0);
+        if (!ok) {
+          setPricingError(data?.message || 'Không thể tải gói dịch vụ');
+          setPricingPlans([]);
+          return;
+        }
+        const list = Array.isArray(data?.data?.data) ? data.data.data : Array.isArray(data?.data) ? data.data : [];
+        const mapped = list.map((p: any) => ({ id: Number(p.id), name: String(p.name || ''), price: Number(p.price || 0) }));
+        setPricingPlans(mapped);
+      } catch {
+        setPricingError('Không thể kết nối đến máy chủ');
+        setPricingPlans([]);
+      } finally {
+        setPricingLoading(false);
+      }
+    };
+    fetchPlans();
+  }, []);
   return (
     <div className="min-h-screen font-sans">
       <Navbar onAuthClick={openAuth} />
@@ -1617,9 +1672,14 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                 Bắt đầu ngay miễn phí
                 <ChevronRight className="group-hover:translate-x-1 transition-transform" />
               </button>
-              <button className="w-full sm:w-auto px-8 py-4 bg-white border border-slate-200 text-slate-900 font-bold rounded-2xl hover:bg-slate-50 transition-all">
+              <a 
+                href="https://vt.tiktok.com/ZSuRUChBE/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="w-full sm:w-auto px-8 py-4 bg-white border border-slate-200 text-slate-900 font-bold rounded-2xl hover:bg-slate-50 transition-all text-center"
+              >
                 Xem demo sản phẩm
-              </button>
+              </a>
             </div>
 
             {/* App Preview Placeholder */}
@@ -1629,15 +1689,59 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
               transition={{ delay: 0.3, duration: 0.8 }}
               className="mt-20 relative max-w-5xl mx-auto"
             >
-              <div className="bg-slate-900 rounded-[2rem] p-2 shadow-2xl overflow-hidden border-4 border-slate-800">
-                <div className="aspect-video bg-slate-800 rounded-[1.5rem] flex items-center justify-center relative overflow-hidden">
-                  <img 
-                    src="https://picsum.photos/seed/labbox-app/1200/800" 
-                    alt="LabBox App Interface" 
-                    className="w-full h-full object-cover opacity-80"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
+              <div className="bg-white rounded-[2rem] p-2 shadow-2xl overflow-hidden border-4 border-slate-200">
+                <div className="aspect-video bg-white rounded-[1.5rem] flex items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 overflow-hidden rounded-[1.5rem]">
+                    <div
+                      ref={slideRef}
+                      onScroll={(e) => {
+                        const el = e.currentTarget;
+                        const w = el.clientWidth;
+                        const idx = Math.round(el.scrollLeft / w);
+                        if (idx !== slideIndex) setSlideIndex(Math.max(0, Math.min(idx, slides.length - 1)));
+                      }}
+                      className="flex w-full h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar"
+                    >
+                      {slides.map((url, idx) => (
+                        <img
+                          key={idx}
+                          src={url}
+                          alt="LabBox App Interface"
+                          className="min-w-full h-full object-contain snap-start"
+                          draggable={false}
+                          referrerPolicy="no-referrer"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {slides.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setSlideIndex(i => (i - 1 + slides.length) % slides.length)}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white shadow border border-slate-200"
+                        aria-label="Prev"
+                      >
+                        <ChevronLeft size={18} />
+                      </button>
+                      <button
+                        onClick={() => setSlideIndex(i => (i + 1) % slides.length)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white shadow border border-slate-200"
+                        aria-label="Next"
+                      >
+                        <ChevronRight size={18} />
+                      </button>
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full border border-slate-200">
+                        {slides.map((_, i) => (
+                          <span
+                            key={i}
+                            onClick={() => setSlideIndex(i)}
+                            className={`w-2 h-2 rounded-full cursor-pointer ${i === slideIndex ? 'bg-brand' : 'bg-slate-300'}`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/10 to-transparent" />
                   <div className="absolute bottom-8 left-8 text-left">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
@@ -1673,22 +1777,27 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
             <p className="text-slate-600 max-w-2xl mx-auto">Chúng tôi hiểu những khó khăn của nhà bán hàng Online. LabBox được thiết kế để giải quyết triệt để các vấn đề đó.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-4 gap-8">
             {[
               {
                 icon: <Video className="w-8 h-8 text-brand" />,
-                title: "Quay video 4K",
-                desc: "Ghi lại mọi chi tiết quá trình đóng gói với chất lượng cao nhất, không bỏ sót bất kỳ công đoạn nào."
+                title: "Quay video thông minh",
+                desc: "Tuỳ chỉnh camera theo ý muốn, tự động quay và kết thúc video khi có QR, tự động xoá video, thêm nhiều người cùng quay video, và nhiều tính năng thông minh khác."
               },
               {
                 icon: <ShieldCheck className="w-8 h-8 text-brand" />,
                 title: "Bằng chứng thép",
-                desc: "Video được lưu trữ an toàn với mã hóa, là bằng chứng không thể chối cãi khi có khiếu nại tráo hàng."
+                desc: "Hiện thị ngày giờ trong video và được lưu trữ an toàn với key mã hóa video, là bằng chứng không thể chối cãi khi có khiếu nại tráo hàng."
               },
               {
                 icon: <History className="w-8 h-8 text-brand" />,
                 title: "Truy xuất tức thì",
-                desc: "Tìm kiếm video theo mã vận đơn hoặc số điện thoại khách hàng chỉ trong vài giây."
+                desc: "Tìm kiếm video theo mã vận đơn, có website quản lý video, hiển thị ai là người quay video và tải video dễ dàng."
+              },
+              {
+                icon: <Lock className="w-8 h-8 text-brand" />,
+                title: "Bảo mật",
+                desc: "Tuỳ chỉnh phân quyền cho nhân viên, tránh tiết lộ video sản phẩm và nhiều tính năng bảo mật cho Shop."
               }
             ].map((feature, i) => (
               <motion.div 
@@ -1714,35 +1823,46 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                name: "Cơ bản",
-                price: "Miễn phí",
-                period: "Mãi mãi",
-                desc: "Dành cho các shop mới bắt đầu kinh doanh.",
-                features: ["Lưu trữ 50 video/tháng", "Chất lượng HD 720p", "Tìm kiếm theo mã đơn", "Hỗ trợ qua email"],
-                button: "Bắt đầu ngay",
-                highlight: false
-              },
-              {
-                name: "Chuyên nghiệp",
-                price: "199.000đ",
-                period: "mỗi tháng",
-                desc: "Dành cho các shop có lượng đơn ổn định.",
-                features: ["Lưu trữ 500 video/tháng", "Chất lượng Full HD 1080p", "Truy xuất nhanh 24/7", "Hỗ trợ ưu tiên 24/7", "Báo cáo thống kê"],
-                button: "Dùng thử 7 ngày",
-                highlight: true
-              },
-              {
-                name: "Doanh nghiệp",
-                price: "499.000đ",
-                period: "mỗi tháng",
-                desc: "Giải pháp tối ưu cho kho hàng lớn.",
-                features: ["Không giới hạn video", "Chất lượng 4K Ultra HD", "API tích hợp hệ thống", "Quản lý nhiều kho hàng", "Account Manager riêng"],
-                button: "Liên hệ tư vấn",
-                highlight: false
-              }
-            ].map((plan, i) => (
+            {(pricingPlans.length
+              ? pricingPlans.map((p, idx) => ({
+                  name: p.name,
+                  price: typeof p.price === 'number' && p.price > 0 ? `${(p.price * 1000).toLocaleString('vi-VN')}đ` : 'Miễn phí',
+                  period: "mỗi tháng",
+                  desc: "Gói dịch vụ LabBox",
+                  features: ["Quản lý video", "Tìm kiếm thông minh", "Hỗ trợ kỹ thuật"],
+                  button: "Đăng ký",
+                  highlight: idx === 1
+                }))
+              : [
+                  {
+                    name: "Cơ bản",
+                    price: "Miễn phí",
+                    period: "Mãi mãi",
+                    desc: "Dành cho các shop mới bắt đầu kinh doanh.",
+                    features: ["Lưu trữ 50 video/tháng", "Chất lượng HD 720p", "Tìm kiếm theo mã đơn", "Hỗ trợ qua email"],
+                    button: "Bắt đầu ngay",
+                    highlight: false
+                  },
+                  {
+                    name: "Chuyên nghiệp",
+                    price: "199.000đ",
+                    period: "mỗi tháng",
+                    desc: "Dành cho các shop có lượng đơn ổn định.",
+                    features: ["Lưu trữ 500 video/tháng", "Chất lượng Full HD 1080p", "Truy xuất nhanh 24/7", "Hỗ trợ ưu tiên 24/7", "Báo cáo thống kê"],
+                    button: "Dùng thử 7 ngày",
+                    highlight: true
+                  },
+                  {
+                    name: "Doanh nghiệp",
+                    price: "499.000đ",
+                    period: "mỗi tháng",
+                    desc: "Giải pháp tối ưu cho kho hàng lớn.",
+                    features: ["Không giới hạn video", "Chất lượng 4K Ultra HD", "API tích hợp hệ thống", "Quản lý nhiều kho hàng", "Account Manager riêng"],
+                    button: "Liên hệ tư vấn",
+                    highlight: false
+                  }
+                ]
+            ).map((plan, i) => (
               <motion.div 
                 key={i}
                 whileHover={{ y: -10 }}
@@ -1892,7 +2012,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                 </li>
                 <li className="flex items-center gap-3 text-slate-600">
                   <Mail size={16} className="text-brand" />
-                  <span>info@moblab.io</span>
+                  <span>feedback@moblab.io</span>
                 </li>
                 <li className="flex items-center gap-3 text-slate-600">
                   <Globe size={16} className="text-brand" />
@@ -1900,7 +2020,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                 </li>
                 <li className="flex items-center gap-3 text-slate-600">
                   <Facebook size={16} className="text-brand" />
-                  <span>@moblab.io</span>
+                  <span>@labboxio</span>
                 </li>
               </ul>
             </div>
