@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { 
   Box, 
   LayoutDashboard, 
@@ -23,10 +23,12 @@ interface CMSLayoutProps {
 const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff }) => {
   const location = useLocation();
   const currentPath = location.pathname;
+  const navigate = useNavigate();
   const [userName, setUserName] = useState<string>('—');
+  const [userEmail, setUserEmail] = useState<string>('');
   const [planName, setPlanName] = useState<string>('—');
   const [avatarText, setAvatarText] = useState<string>('LB');
-
+  const [profileOpen, setProfileOpen] = useState<boolean>(false);
   const sidebarItems = [
     { id: 'dashboard', path: '/cms', icon: <LayoutDashboard size={20} />, label: 'Tổng quan' },
     { id: 'stores-videos', path: '/cms/stores', icon: <Store size={20} />, label: 'Quản lý cửa hàng và video' },
@@ -49,6 +51,7 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
           info.email ||
           '—';
         setUserName(String(name));
+        setUserEmail(String(info.email || ''));
         const rolesArr = Array.isArray(info.roles) ? info.roles : [];
         const rolesDesc = rolesArr.length ? rolesArr.map((r: any) => r?.description || r?.name).filter(Boolean).join(' • ') : '—';
         setPlanName(String(rolesDesc));
@@ -85,6 +88,7 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
           info.email ||
           '—';
         setUserName(String(name));
+        setUserEmail(String(info.email || ''));
         const rolesArr = Array.isArray(data?.data?.roles)
           ? data.data.roles
           : Array.isArray(info.roles)
@@ -111,6 +115,11 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
     };
     fetchMe();
   }, []);
+  
+  const goProfile = () => {
+    setProfileOpen(false);
+    navigate('/cms/profile');
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
@@ -164,13 +173,17 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
             />
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 relative">
             <button className="p-2 text-slate-400 hover:text-slate-600 relative">
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
             </button>
             <div className="h-8 w-[1px] bg-slate-200 mx-2" />
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => setProfileOpen(p => !p)}
+              className="flex items-center gap-3 hover:bg-slate-50 px-3 py-2 rounded-xl"
+              title="Thông tin người dùng"
+            >
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-slate-900">{userName}</p>
                 <p className="text-xs text-slate-500">{planName}</p>
@@ -178,40 +191,73 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
               <div className="w-10 h-10 bg-brand/10 rounded-full flex items-center justify-center text-brand font-bold">
                 {avatarText}
               </div>
-            </div>
+            </button>
+            {profileOpen && (
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setProfileOpen(false)}
+              />
+            )}
+            {profileOpen && (
+              <div className="absolute right-0 top-14 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-20">
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <p className="text-sm font-bold text-slate-900">{userName}</p>
+                  {userEmail ? <p className="text-xs text-slate-500">{userEmail}</p> : null}
+                </div>
+                <div className="p-2">
+                  <button
+                    onClick={goProfile}
+                    className="w-full text-left px-4 py-2 rounded-xl hover:bg-slate-50 text-sm font-bold"
+                  >
+                    Trang cá nhân
+                  </button>
+                  <button
+                    onClick={() => {
+                      setProfileOpen(false);
+                      onLogout();
+                    }}
+                    className="w-full text-left px-4 py-2 rounded-xl hover:bg-rose-50 text-rose-600 text-sm font-bold"
+                  >
+                    Đăng xuất
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </header>
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-display font-bold text-slate-900">
-                {activeItem.label}
-              </h1>
-              <p className="text-slate-500 text-sm mt-1">Quản lý hệ thống LabBox của bạn</p>
+          {currentPath !== '/cms/profile' && (
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h1 className="text-2xl font-display font-bold text-slate-900">
+                  {activeItem.label}
+                </h1>
+                <p className="text-slate-500 text-sm mt-1">Quản lý hệ thống LabBox của bạn</p>
+              </div>
+              <div className="flex gap-3">
+                {activeItem.id === 'stores-videos' && (
+                  <button 
+                    onClick={onAddStore}
+                    className="bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-brand/20 flex items-center gap-2 transition-all active:scale-95"
+                  >
+                    <Plus size={20} />
+                    Thêm cửa hàng mới
+                  </button>
+                )}
+                {activeItem.id === 'staff' && (
+                  <button 
+                    onClick={onAddStaff}
+                    className="bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-brand/20 flex items-center gap-2 transition-all active:scale-95"
+                  >
+                    <Plus size={20} />
+                    Thêm nhân viên mới
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex gap-3">
-              {activeItem.id === 'stores-videos' && (
-                <button 
-                  onClick={onAddStore}
-                  className="bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-brand/20 flex items-center gap-2 transition-all active:scale-95"
-                >
-                  <Plus size={20} />
-                  Thêm cửa hàng mới
-                </button>
-              )}
-              {activeItem.id === 'staff' && (
-                <button 
-                  onClick={onAddStaff}
-                  className="bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-brand/20 flex items-center gap-2 transition-all active:scale-95"
-                >
-                  <Plus size={20} />
-                  Thêm nhân viên mới
-                </button>
-              )}
-            </div>
-          </div>
+          )}
 
           <Outlet />
         </div>

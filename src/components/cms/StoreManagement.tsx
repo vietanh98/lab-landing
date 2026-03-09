@@ -129,8 +129,11 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
           {localStores.map((store, i) => (
             <div 
               key={store.id || i} 
-              className="relative bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-start justify-between group"
-              onClick={() => setOpenMenuId(null)}
+              className="relative bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-start justify-between group hover:cursor-pointer"
+              onClick={() => {
+                setOpenMenuId(null);
+                onViewStoreVideos && onViewStoreVideos(store);
+              }}
             >
               <div className="flex gap-4">
                 {(() => {

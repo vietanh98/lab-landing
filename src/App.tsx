@@ -34,11 +34,13 @@ import {
   Trash2,
   Edit,
   Eye,
+  EyeOff,
   TrendingUp,
   ArrowUpRight,
   QrCode,
   Lock,
-  ChevronLeft
+  ChevronLeft,
+  MessageCircle
 } from 'lucide-react';
 
 // --- CMS Components ---
@@ -48,6 +50,7 @@ import VideoManagement from './components/cms/VideoManagement';
 import StoreManagement from './components/cms/StoreManagement';
 import StaffManagement from './components/cms/StaffManagement';
 import SubscriptionManagement from './components/cms/SubscriptionManagement';
+import Profile from './components/cms/Profile';
 
 // --- Components ---
 
@@ -678,6 +681,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               }}
             />
           } />
+          <Route path="profile" element={<Profile />} />
         </Route>
       </Routes>
 
@@ -778,6 +782,24 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Zalo Chat Button */}
+      {(() => {
+        const zaloLink = import.meta.env.VITE_ZALO_LINK || 'https://zalo.me/';
+        return (
+          <a
+            href={zaloLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="fixed bottom-6 right-6 z-[500] px-4 py-3 rounded-full bg-[#016EF4] text-white font-bold shadow-xl hover:bg-[#0159c7] active:scale-95 transition-all flex items-center gap-2"
+            aria-label="Chat Zalo"
+            title="Chat Zalo"
+          >
+            <MessageCircle size={18} className="text-white" />
+            Zalo Chat
+          </a>
+        );
+      })()}
 
       {/* Store Modal */}
       <AnimatePresence>
@@ -1213,7 +1235,7 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
 };
 
 const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean, mode: 'login' | 'register', onClose: () => void, onLoginSuccess: () => void }) => {
-  const [currentMode, setCurrentMode] = useState(mode);
+  const [currentMode, setCurrentMode] = useState<'login' | 'register' | 'forgot'>(mode);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -1229,6 +1251,8 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
   const [plans, setPlans] = useState<Array<{ id: number; name: string; price?: number }>>([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [plansError, setPlansError] = useState<string | null>(null);
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // luôn gọi hooks trước khi return để không thay đổi thứ tự hook giữa các lần render
 
@@ -1325,9 +1349,12 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
 
     try {
       const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-      const endpoint = currentMode === 'login'
-        ? `${apiBase}/api/v1/auth/login`
-        : `${apiBase}/api/v1/auth/register`;
+      const endpoint =
+        currentMode === 'login'
+          ? `${apiBase}/api/v1/auth/login`
+          : currentMode === 'register'
+          ? `${apiBase}/api/v1/auth/register`
+          : `${apiBase}/api/v1/auth/forgot`;
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -1336,7 +1363,13 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
           'Accept': 'application/json, text/plain, */*',
           'X-Timestamp': Date.now().toString()
         },
-        body: JSON.stringify(formData)
+        body:
+          currentMode === 'forgot'
+            ? JSON.stringify({
+                email: formData.email,
+                username: formData.username
+              })
+            : JSON.stringify(formData)
       });
 
       const data = await response.json();
@@ -1359,14 +1392,27 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
             onLoginSuccess();
             onClose();
           }, 1000);
-        } else {
+        } else if (currentMode === 'register') {
           setStatusMsg({ type: 'success', text: 'Đăng ký thành công!' });
           setTimeout(() => setCurrentMode('login'), 1500);
+        } else {
+          setStatusMsg({
+            type: 'success',
+            text: 'Đã gửi yêu cầu khôi phục mật khẩu. Vui lòng kiểm tra email.'
+          });
+          setTimeout(() => setCurrentMode('login'), 2000);
         }
       } else {
         setStatusMsg({
           type: 'error',
-          text: data?.message || data?.errors?.[0] || (currentMode === 'login' ? 'Đăng nhập thất bại' : 'Đăng ký thất bại')
+          text:
+            data?.message ||
+            data?.errors?.[0] ||
+            (currentMode === 'login'
+              ? 'Đăng nhập thất bại'
+              : currentMode === 'register'
+              ? 'Đăng ký thất bại'
+              : 'Gửi yêu cầu thất bại')
         });
       }
     } catch (error) {
@@ -1410,10 +1456,14 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
 
         <div className="mb-6">
           <h2 className="text-3xl font-display font-bold text-slate-900">
-            {currentMode === 'login' ? 'Chào mừng trở lại' : 'Bắt đầu với LabBox'}
+            {currentMode === 'login' ? 'Chào mừng trở lại' : currentMode === 'register' ? 'Bắt đầu với LabBox' : 'Khôi phục mật khẩu'}
           </h2>
           <p className="text-slate-500 mt-1">
-            {currentMode === 'login' ? 'Đăng nhập để quản lý đơn hàng của bạn' : 'Tạo tài khoản để bảo vệ shop của bạn ngay hôm nay'}
+            {currentMode === 'login'
+              ? 'Đăng nhập để quản lý đơn hàng của bạn'
+              : currentMode === 'register'
+              ? 'Tạo tài khoản để bảo vệ shop của bạn ngay hôm nay'
+              : 'Nhập email hoặc tên đăng nhập để nhận liên kết đặt lại mật khẩu'}
           </p>
         </div>
 
@@ -1514,30 +1564,65 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
               </>
             )}
 
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
-              <input 
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                type="password" 
-                className={`w-full px-4 py-2.5 rounded-xl border ${errors.password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                placeholder="••••••••" 
-              />
-              {errors.password && <p className="text-red-500 text-[10px] mt-1">{errors.password}</p>}
-            </div>
+            {currentMode !== 'forgot' && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
+                <div className="relative">
+                  <input 
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    type={showPass ? 'text' : 'password'}
+                    className={`w-full px-4 pr-10 py-2.5 rounded-xl border ${errors.password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
+                    placeholder="••••••••" 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(p => !p)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                    aria-label="toggle-password"
+                  >
+                    {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {errors.password && <p className="text-red-500 text-[10px] mt-1">{errors.password}</p>}
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentMode('forgot');
+                      setStatusMsg(null);
+                      setErrors({});
+                    }}
+                    className="text-xs text-brand font-bold hover:underline"
+                  >
+                    Quên mật khẩu?
+                  </button>
+                </div>
+              </div>
+            )}
 
             {currentMode === 'register' && (
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Xác nhận mật khẩu</label>
-                <input 
-                  name="confirm_password"
-                  value={formData.confirm_password}
-                  onChange={handleChange}
-                  type="password" 
-                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.confirm_password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                  placeholder="••••••••" 
-                />
+                <div className="relative">
+                  <input 
+                    name="confirm_password"
+                    value={formData.confirm_password}
+                    onChange={handleChange}
+                    type={showConfirm ? 'text' : 'password'}
+                    className={`w-full px-4 pr-10 py-2.5 rounded-xl border ${errors.confirm_password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
+                    placeholder="••••••••" 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(p => !p)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                    aria-label="toggle-confirm-password"
+                  >
+                    {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
                 {errors.confirm_password && <p className="text-red-500 text-[10px] mt-1">{errors.confirm_password}</p>}
               </div>
             )}
@@ -1550,7 +1635,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              currentMode === 'login' ? 'Đăng nhập' : 'Đăng ký tài khoản'
+              currentMode === 'login' ? 'Đăng nhập' : currentMode === 'register' ? 'Đăng ký tài khoản' : 'Gửi yêu cầu khôi phục'
             )}
           </button>
         </form>
@@ -1740,10 +1825,6 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/10 to-transparent pointer-events-none" />
                   <div className="absolute bottom-8 left-8 text-left">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                      <span className="text-white font-mono text-sm">RECORDING... 00:12:45</span>
-                    </div>
                     <p className="text-white/80 text-sm font-medium">Đơn hàng: #DH123456 - Shop Mẹ Bé</p>
                   </div>
                 </div>
