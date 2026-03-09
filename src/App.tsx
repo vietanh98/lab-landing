@@ -1692,45 +1692,42 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
               <div className="bg-white rounded-[2rem] p-2 shadow-2xl overflow-hidden border-4 border-slate-200">
                 <div className="aspect-video bg-white rounded-[1.5rem] flex items-center justify-center relative overflow-hidden">
                   <div className="absolute inset-0 overflow-hidden rounded-[1.5rem]">
-                    <div
-                      ref={slideRef}
-                      onScroll={(e) => {
-                        const el = e.currentTarget;
-                        const w = el.clientWidth;
-                        const idx = Math.round(el.scrollLeft / w);
-                        if (idx !== slideIndex) setSlideIndex(Math.max(0, Math.min(idx, slides.length - 1)));
-                      }}
-                      className="flex w-full h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar"
-                    >
-                      {slides.map((url, idx) => (
-                        <img
-                          key={idx}
-                          src={url}
-                          alt="LabBox App Interface"
-                          className="min-w-full h-full object-contain snap-start"
-                          draggable={false}
-                          referrerPolicy="no-referrer"
-                        />
-                      ))}
+                    <div className="w-full h-full">
+                      <div
+                        className="flex w-full h-full transition-transform duration-500 ease-out"
+                        style={{ transform: `translateX(-${slideIndex * 100}%)` }}
+                      >
+                        {slides.map((url, idx) => (
+                          <div key={idx} className="w-full h-full flex items-center justify-center shrink-0">
+                            <img
+                              src={url}
+                              alt="LabBox App Interface"
+                              className="max-w-full max-h-full object-contain"
+                              referrerPolicy="no-referrer"
+                              draggable={false}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   {slides.length > 1 && (
                     <>
                       <button
                         onClick={() => setSlideIndex(i => (i - 1 + slides.length) % slides.length)}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white shadow border border-slate-200"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white shadow border border-slate-200 z-10"
                         aria-label="Prev"
                       >
                         <ChevronLeft size={18} />
                       </button>
                       <button
                         onClick={() => setSlideIndex(i => (i + 1) % slides.length)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white shadow border border-slate-200"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 hover:bg-white shadow border border-slate-200 z-10"
                         aria-label="Next"
                       >
                         <ChevronRight size={18} />
                       </button>
-                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full border border-slate-200">
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full border border-slate-200 z-10">
                         {slides.map((_, i) => (
                           <span
                             key={i}
@@ -1741,7 +1738,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                       </div>
                     </>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/10 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/10 to-transparent pointer-events-none" />
                   <div className="absolute bottom-8 left-8 text-left">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
