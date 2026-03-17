@@ -12,6 +12,8 @@ import {
   X, 
   Star, 
   Mail, 
+  Headset,
+  Info,
   Globe, 
   Facebook,
   LogIn,
@@ -785,7 +787,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
 
       {/* Zalo Chat Button */}
       {(() => {
-        const zaloLink = import.meta.env.VITE_ZALO_LINK || 'https://zalo.me/';
+        const zaloLink = import.meta.env.VITE_ZALO_LINK || 'http://zalo.me/2667033808364818533?src=qr';
         return (
           <a
             href={zaloLink}
@@ -2142,9 +2144,6 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                     </>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/10 to-transparent pointer-events-none" />
-                  <div className="absolute bottom-8 left-8 text-left">
-                    <p className="text-white/80 text-sm font-medium">Đơn hàng: #DH123456 - Shop Mẹ Bé</p>
-                  </div>
                 </div>
               </div>
               
@@ -2387,13 +2386,32 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                 Ứng dụng hỗ trợ quay video đóng hàng thông minh. Giải pháp tối ưu cho nhà bán hàng thời đại số.
               </p>
               <div className="flex gap-4">
-                <a href="#" className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-brand hover:border-brand transition-all">
+                <a
+                  href="https://www.facebook.com/labboxio/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-brand hover:border-brand transition-all"
+                  aria-label="Facebook @labboxio"
+                  title="Facebook @labboxio"
+                >
                   <Facebook size={20} />
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-brand hover:border-brand transition-all">
+                <a
+                  href="https://labbox.vn/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-brand hover:border-brand transition-all"
+                  aria-label="Website labbox.vn"
+                  title="Website labbox.vn"
+                >
                   <Globe size={20} />
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-brand hover:border-brand transition-all">
+                <a
+                  href="mailto:support@moblab.io"
+                  className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-brand hover:border-brand transition-all"
+                  aria-label="Email support@moblab.io"
+                  title="Email support@moblab.io"
+                >
                   <Mail size={20} />
                 </a>
               </div>
@@ -2402,21 +2420,71 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
             <div>
               <h4 className="font-bold text-slate-900 mb-6">Liên hệ với chúng tôi</h4>
               <ul className="space-y-4">
-                <li className="flex items-center gap-3 text-slate-600">
-                  <Mail size={16} className="text-brand" />
-                  <span>support@moblab.io</span>
+                <li>
+                  <a
+                    href="mailto:support@moblab.io"
+                    className="flex items-center gap-3 text-slate-600 hover:text-brand transition-colors"
+                  >
+                    <Headset size={16} className="text-brand" />
+                    <span>
+                      <span className="block text-xs font-semibold text-slate-500">Support</span>
+                      <span className="block">support@moblab.io</span>
+                    </span>
+                  </a>
                 </li>
-                <li className="flex items-center gap-3 text-slate-600">
-                  <Mail size={16} className="text-brand" />
-                  <span>feedback@moblab.io</span>
+                <li>
+                  <a
+                    href="mailto:info@moblab.io"
+                    className="flex items-center gap-3 text-slate-600 hover:text-brand transition-colors"
+                  >
+                    <Info size={16} className="text-brand" />
+                    <span>
+                      <span className="block text-xs font-semibold text-slate-500">General Info</span>
+                      <span className="block">info@moblab.io</span>
+                    </span>
+                  </a>
                 </li>
-                <li className="flex items-center gap-3 text-slate-600">
-                  <Globe size={16} className="text-brand" />
-                  <span>moblab.io</span>
+                <li>
+                  <a
+                    href="https://labbox.vn/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 text-slate-600 hover:text-brand transition-colors"
+                  >
+                    <Globe size={16} className="text-brand" />
+                    <span>
+                      <span className="block text-xs font-semibold text-slate-500">Website labbox.vn</span>
+                      <span className="block">https://labbox.vn/</span>
+                    </span>
+                  </a>
                 </li>
-                <li className="flex items-center gap-3 text-slate-600">
-                  <Facebook size={16} className="text-brand" />
-                  <span>@labboxio</span>
+                <li>
+                  <a
+                    href="https://www.facebook.com/labboxio/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 text-slate-600 hover:text-brand transition-colors"
+                  >
+                    <Facebook size={16} className="text-[#1877F2]" />
+                    <span>
+                      <span className="block text-xs font-semibold text-slate-500">Facebook @labboxio</span>
+                      <span className="block">https://www.facebook.com/labboxio/</span>
+                    </span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="http://zalo.me/2667033808364818533?src=qr"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 text-slate-600 hover:text-brand transition-colors"
+                  >
+                    <MessageCircle size={16} className="text-[#016EF4]" />
+                    <span>
+                      <span className="block text-xs font-semibold text-slate-500">Zalo MobLab</span>
+                      <span className="block">http://zalo.me/2667033808364818533?src=qr</span>
+                    </span>
+                  </a>
                 </li>
               </ul>
             </div>

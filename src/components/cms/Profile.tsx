@@ -6,6 +6,9 @@ const Profile: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [phoneDraft, setPhoneDraft] = useState('');
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,15 +34,24 @@ const Profile: React.FC = () => {
         if (ok) {
           const info = data?.data ?? {};
           setUser(info);
+          setPhoneDraft(String(info?.phone || ''));
           try { localStorage.setItem('user_info', JSON.stringify(info)); } catch {}
         } else {
           const raw = localStorage.getItem('user_info');
-          if (raw) setUser(JSON.parse(raw));
+          if (raw) {
+            const info = JSON.parse(raw);
+            setUser(info);
+            setPhoneDraft(String(info?.phone || ''));
+          }
           setError(data?.message || null);
         }
       } catch {
         const raw = localStorage.getItem('user_info');
-        if (raw) setUser(JSON.parse(raw));
+        if (raw) {
+          const info = JSON.parse(raw);
+          setUser(info);
+          setPhoneDraft(String(info?.phone || ''));
+        }
         setError('Không thể kết nối đến máy chủ');
       } finally {
         setLoading(false);
@@ -47,6 +59,88 @@ const Profile: React.FC = () => {
     };
     fetchMe();
   }, []);
+
+  const phoneRegex = /^(?:\+?84|0)(3|5|7|8|9)\d{8}$/;
+
+  const getUserId = () => {
+    const u = user || {};
+    const candidate = u.id ?? u.user_id ?? u.sub ?? u.userId;
+    const n = Number(candidate);
+    if (!Number.isNaN(n) && n > 0) return n;
+    const tokenRaw = localStorage.getItem('token');
+    if (tokenRaw) {
+      try {
+        const payload = JSON.parse(atob(tokenRaw.split('.')[1]));
+        const fromToken = payload.sub || payload.user_id || payload.id;
+        const nn = Number(fromToken);
+        if (!Number.isNaN(nn) && nn > 0) return nn;
+      } catch {}
+    }
+    return null;
+  };
+
+  const handleSavePhone = async () => {
+    setInfoMsg(null);
+    const phone = phoneDraft.trim();
+    if (phone && !phoneRegex.test(phone)) {
+      setInfoMsg('Số điện thoại không hợp lệ (VD: 0912345678 hoặc +84901234567)');
+      return;
+    }
+    const userId = getUserId();
+    if (!userId) {
+      setInfoMsg('Không xác định được tài khoản. Vui lòng đăng nhập lại.');
+      return;
+    }
+    setPhoneSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/plain, */*',
+        'X-Timestamp': Date.now().toString(),
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const tryUpdate = async (apiBase: string) => {
+        const endpoint = `${apiBase}/api/v1/users/${userId}`;
+        const resp = await fetch(endpoint, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ user_id: userId, phone }),
+        });
+        const respData = await resp.json().catch(() => ({}));
+        const ok = resp.ok && (respData?.status === true || respData?.status_code === 0 || respData?.success === true);
+        return { ok, respData };
+      };
+
+      const apiBases = [
+        import.meta.env.VITE_API_BASE_URL,
+        'http://localhost:8000',
+        'http://localhost:3000',
+      ].filter((v, i, arr) => !!v && arr.indexOf(v) === i) as string[];
+
+      let r: { ok: boolean; respData: any } | null = null;
+      for (const base of apiBases) {
+        const rr = await tryUpdate(base);
+        r = rr;
+        if (rr.ok) break;
+      }
+
+      if (!r?.ok) {
+        setInfoMsg(r?.respData?.message || 'Cập nhật số điện thoại không thành công');
+        return;
+      }
+
+      const updatedUser = r.respData?.data?.user ?? r.respData?.data ?? { ...(user || {}), phone };
+      setUser(updatedUser);
+      try { localStorage.setItem('user_info', JSON.stringify(updatedUser)); } catch {}
+      setInfoMsg('Cập nhật số điện thoại thành công');
+    } catch {
+      setInfoMsg('Không thể kết nối máy chủ');
+    } finally {
+      setPhoneSaving(false);
+    }
+  };
 
   const handleChangePassword = async () => {
     setStatusMsg(null);
@@ -99,13 +193,13 @@ const Profile: React.FC = () => {
         <div className="flex gap-2 p-4 border-b border-slate-100">
           <button
             className={`px-4 py-2 rounded-xl text-sm font-bold cursor-pointer ${activeTab === 'info' ? 'bg-brand text-white' : 'bg-slate-100 text-slate-700'}`}
-            onClick={() => setActiveTab('info')}
+            onClick={() => { setActiveTab('info'); setStatusMsg(null); }}
           >
             Thông tin cá nhân
           </button>
           <button
             className={`px-4 py-2 rounded-xl text-sm font-bold cursor-pointer ${activeTab === 'security' ? 'bg-brand text-white' : 'bg-slate-100 text-slate-700'}`}
-            onClick={() => setActiveTab('security')}
+            onClick={() => { setActiveTab('security'); setInfoMsg(null); }}
           >
             Bảo mật
           </button>
@@ -128,7 +222,23 @@ const Profile: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Số điện thoại</p>
-                    <p className="text-sm text-slate-900 font-bold">{user?.phone || '—'}</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="tel"
+                        value={phoneDraft}
+                        onChange={(e) => { setPhoneDraft(e.target.value); setInfoMsg(null); }}
+                        className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
+                        placeholder="VD: 0912345678"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSavePhone}
+                        disabled={phoneSaving || phoneDraft.trim() === String(user?.phone || '').trim()}
+                        className="px-4 py-3 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl transition-all"
+                      >
+                        {phoneSaving ? 'Đang lưu...' : 'Lưu'}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Trạng thái</p>
@@ -137,6 +247,9 @@ const Profile: React.FC = () => {
                     </span>
                   </div>
                 </>
+              )}
+              {infoMsg && (
+                <div className={`col-span-2 text-sm ${infoMsg.includes('thành công') ? 'text-emerald-600' : 'text-rose-600'}`}>{infoMsg}</div>
               )}
               {error && <div className="col-span-2 text-rose-600 text-sm">{error}</div>}
             </div>
