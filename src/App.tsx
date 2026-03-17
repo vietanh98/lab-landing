@@ -1235,126 +1235,260 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
 };
 
 const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean, mode: 'login' | 'register', onClose: () => void, onLoginSuccess: () => void }) => {
-  const [currentMode, setCurrentMode] = useState<'login' | 'register' | 'forgot'>(mode);
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    full_name: '',
+  type AuthMode = 'login' | 'register' | 'forgot';
+  type RegisterStep = 1 | 2 | 3 | 4;
+
+  const [currentMode, setCurrentMode] = useState<AuthMode>(mode);
+  const [registerStep, setRegisterStep] = useState<RegisterStep>(1);
+  const [loginData, setLoginData] = useState({ username: '', password: '' });
+  const [forgotData, setForgotData] = useState({ email: '', username: '' });
+  const [registerData, setRegisterData] = useState({
     phone: '',
+    otp: '',
     password: '',
     confirm_password: '',
-    subscription_id: ''
+    full_name: '',
+    email: '',
+    birth_date: '',
+    gender: '' as '' | 'Nam' | 'Nữ' | 'Khác',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [plans, setPlans] = useState<Array<{ id: number; name: string; price?: number }>>([]);
-  const [plansLoading, setPlansLoading] = useState(false);
-  const [plansError, setPlansError] = useState<string | null>(null);
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-
-  // luôn gọi hooks trước khi return để không thay đổi thứ tự hook giữa các lần render
-
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.username) {
-      newErrors.username = 'Vui lòng nhập tên đăng nhập';
-    } else if (currentMode === 'register' && formData.username.length < 3) {
-      newErrors.username = 'Tên đăng nhập phải có ít nhất 3 ký tự';
-    }
-
-    if (currentMode === 'register') {
-      const phoneRegex = /^(0|84)(3|5|7|8|9)([0-9]{8})$/;
-      if (!formData.phone || !phoneRegex.test(formData.phone)) {
-        newErrors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678)';
-      }
-
-      if (!formData.password || formData.password.length < 6) {
-        newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
-      }
-
-      if (formData.password !== formData.confirm_password) {
-        newErrors.confirm_password = 'Mật khẩu xác nhận không khớp';
-      }
-      
-      if (!formData.full_name) {
-        newErrors.full_name = 'Vui lòng nhập họ và tên hoặc tên shop';
-      }
-
-      if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) {
-        newErrors.email = 'Email không hợp lệ';
-      }
-      if (!formData.subscription_id) {
-        newErrors.subscription_id = 'Vui lòng chọn gói dịch vụ';
-      }
-    } else {
-      // Login mode validation
-      if (!formData.password) {
-        newErrors.password = 'Vui lòng nhập mật khẩu';
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const [resendUntil, setResendUntil] = useState<number | null>(null);
+  const [resendSecondsLeft, setResendSecondsLeft] = useState<number>(0);
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
 
   React.useEffect(() => {
-    const fetchPlans = async () => {
-      setPlansLoading(true);
-      setPlansError(null);
-      try {
-        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-        const endpoint = `${apiBase}/api/v1/subcription?page=1&per_page=50`;
-        const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
-        const token = localStorage.getItem('token');
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        headers['X-Timestamp'] = Date.now().toString();
-        const res = await fetch(endpoint, { headers });
-        const data = await res.json().catch(() => ({}));
-        const ok = res.ok && (data?.status === true || data?.status_code === 0);
-        if (!ok) {
-          setPlansError(data?.message || 'Không thể tải danh sách gói');
-          setPlans([]);
-          return;
-        }
-        const list = Array.isArray(data?.data?.data) ? data.data.data : Array.isArray(data?.data) ? data.data : [];
-        const mapped = list.map((p: any) => ({ id: Number(p.id), name: String(p.name || ''), price: Number(p.price || 0) }));
-        setPlans(mapped);
-        if (mapped.length && !formData.subscription_id) {
-          setFormData(prev => ({ ...prev, subscription_id: String(mapped[0].id) }));
-        }
-      } catch (err) {
-        setPlansError('Không thể kết nối đến máy chủ');
-        setPlans([]);
-      } finally {
-        setPlansLoading(false);
-      }
+    if (!isOpen) return;
+    setCurrentMode(mode);
+    setErrors({});
+    setStatusMsg(null);
+    setIsLoading(false);
+    setShowPass(false);
+    setShowConfirm(false);
+    setRegisterStep(1);
+    setResendUntil(null);
+    setResendSecondsLeft(0);
+    setIsOtpVerified(false);
+  }, [isOpen, mode]);
+
+  React.useEffect(() => {
+    if (!resendUntil) return;
+    const tick = () => {
+      const s = Math.max(0, Math.ceil((resendUntil - Date.now()) / 1000));
+      setResendSecondsLeft(s);
+      if (s === 0) setResendUntil(null);
     };
-    if (isOpen && currentMode === 'register') {
-      fetchPlans();
-    }
-  }, [isOpen, currentMode]);
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [resendUntil]);
 
   if (!isOpen) return null;
+
+  const clearFieldError = (name: string) => {
+    if (!errors[name]) return;
+    setErrors(prev => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
+  const validateLogin = () => {
+    const next: Record<string, string> = {};
+    if (!loginData.username) next.username = 'Vui lòng nhập tên đăng nhập';
+    if (!loginData.password) next.password = 'Vui lòng nhập mật khẩu';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const validateForgot = () => {
+    const next: Record<string, string> = {};
+    if (!forgotData.email && !forgotData.username) next.forgot = 'Vui lòng nhập email hoặc tên đăng nhập';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const phoneRegex = /^(?:\+?84|0)(3|5|7|8|9)\d{8}$/;
+
+  const normalizePhone = (raw: string) => {
+    const p = String(raw || '').trim().replace(/\s+/g, '');
+    if (!p) return p;
+    if (p.startsWith('+84')) return p;
+    if (p.startsWith('+')) return p;
+    if (p.startsWith('84')) return `+${p}`;
+    if (p.startsWith('0')) return `+84${p.slice(1)}`;
+    return p;
+  };
+
+  const getApiBase = () => import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+  const isApiOk = (res: Response, data: any) => res.ok && (data?.status === true || data?.status_code === 0 || data?.success === true);
+
+  const validateRegisterStep1 = () => {
+    const next: Record<string, string> = {};
+    const normalized = normalizePhone(registerData.phone);
+    if (!normalized || !phoneRegex.test(normalized)) {
+      next.phone = 'Số điện thoại không hợp lệ (VD: +84901234567)';
+    }
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const validateRegisterStep2 = () => {
+    const next: Record<string, string> = {};
+    if (!registerData.otp) next.otp = 'Vui lòng nhập mã OTP';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const validateRegisterStep3 = () => {
+    const next: Record<string, string> = {};
+    if (!registerData.password || registerData.password.length < 6) next.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+    if (registerData.password !== registerData.confirm_password) next.confirm_password = 'Mật khẩu xác nhận không khớp';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const validateRegisterStep4 = () => {
+    const next: Record<string, string> = {};
+    if (!registerData.full_name) next.full_name = 'Vui lòng nhập họ và tên';
+    if (!registerData.email || !/\S+@\S+\.\S+/.test(registerData.email)) next.email = 'Email không hợp lệ';
+    if (!registerData.birth_date) next.birth_date = 'Vui lòng chọn ngày sinh';
+    if (!registerData.gender) next.gender = 'Vui lòng chọn giới tính';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const sendOtp = async () => {
+    setStatusMsg(null);
+    if (!validateRegisterStep1()) return;
+    setIsOtpVerified(false);
+    setIsLoading(true);
+    try {
+      const apiBase = getApiBase();
+      const phone = normalizePhone(registerData.phone);
+      setRegisterData(prev => ({ ...prev, phone }));
+
+      const endpoint = `${apiBase}/api/v1/auth/otp/send`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/plain, */*',
+          'X-Timestamp': Date.now().toString(),
+        },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const ok = isApiOk(res, data);
+      if (!ok) {
+        setStatusMsg({ type: 'error', text: data?.message || 'Gửi OTP không thành công. Vui lòng thử lại.' });
+        return;
+      }
+
+      setResendUntil(Date.now() + 30 * 1000);
+      if (import.meta.env.DEV) setRegisterData(prev => ({ ...prev, otp: '123456' }));
+      setStatusMsg({ type: 'success', text: 'Đã gửi mã OTP qua Zalo ZNS.' });
+      setRegisterStep(2);
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: e?.message || 'Gửi OTP không thành công. Vui lòng thử lại.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    setStatusMsg(null);
+    if (!validateRegisterStep2()) return;
+    setIsLoading(true);
+    try {
+      const apiBase = getApiBase();
+      const phone = normalizePhone(registerData.phone);
+      setRegisterData(prev => ({ ...prev, phone }));
+
+      const endpoint = `${apiBase}/api/v1/auth/otp/verify`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/plain, */*',
+          'X-Timestamp': Date.now().toString(),
+        },
+        body: JSON.stringify({ phone, code: registerData.otp.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const ok = isApiOk(res, data);
+      if (!ok) {
+        setErrors({ otp: data?.message || 'Mã OTP không đúng' });
+        return;
+      }
+      setStatusMsg({ type: 'success', text: 'Xác nhận mã OTP thành công.' });
+      setIsOtpVerified(true);
+      setRegisterStep(3);
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: e?.message || 'Không thể xác nhận OTP. Vui lòng thử lại.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyPasswordStep = () => {
+    setStatusMsg(null);
+    if (!isOtpVerified) {
+      setRegisterStep(2);
+      setErrors({ otp: 'Vui lòng xác nhận OTP trước' });
+      return;
+    }
+    if (!validateRegisterStep3()) return;
+    setRegisterStep(4);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMsg(null);
 
-    if (!validate()) return;
+    if (currentMode === 'register') {
+      if (registerStep !== 4) return;
+      if (!validateRegisterStep4()) return;
+    } else if (currentMode === 'login') {
+      if (!validateLogin()) return;
+    } else {
+      if (!validateForgot()) return;
+    }
 
     setIsLoading(true);
 
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const apiBase = getApiBase();
       const endpoint =
         currentMode === 'login'
           ? `${apiBase}/api/v1/auth/login`
           : currentMode === 'register'
           ? `${apiBase}/api/v1/auth/register`
           : `${apiBase}/api/v1/auth/forgot`;
+
+      const phone = normalizePhone(registerData.phone);
+
+      const body =
+        currentMode === 'login'
+          ? { username: loginData.username, password: loginData.password }
+          : currentMode === 'register'
+          ? {
+              username: phone,
+              phone,
+              password: registerData.password,
+              confirm_password: registerData.confirm_password,
+              full_name: registerData.full_name,
+              email: registerData.email,
+              birth_date: registerData.birth_date,
+              gender: registerData.gender,
+            }
+          : { email: forgotData.email, username: forgotData.username };
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -1363,28 +1497,19 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
           'Accept': 'application/json, text/plain, */*',
           'X-Timestamp': Date.now().toString()
         },
-        body:
-          currentMode === 'forgot'
-            ? JSON.stringify({
-                email: formData.email,
-                username: formData.username
-              })
-            : JSON.stringify(formData)
+        body: JSON.stringify(body)
       });
 
-      const data = await response.json();
-      // API may return 200 even on application-level failure; check data.status
-      const apiSuccess = response.ok && (data?.status === true || data?.status_code === 0);
+      const data = await response.json().catch(() => ({}));
+      const apiSuccess = isApiOk(response, data);
       if (apiSuccess) {
         if (currentMode === 'login') {
           setStatusMsg({
             type: 'success',
             text: 'Đăng nhập thành công! Đang vào hệ thống...'
           });
-          // save token/user (API returns token in data.data.access_token)
           const token = data?.data?.access_token || data?.access_token || data?.token;
           if (token) localStorage.setItem('token', token);
-          // store any returned data under user_info for debugging/usage
           localStorage.setItem('user_info', JSON.stringify(data.data || data || {}));
           localStorage.setItem('isLoggedIn', 'true');
 
@@ -1394,13 +1519,14 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
           }, 1000);
         } else if (currentMode === 'register') {
           setStatusMsg({ type: 'success', text: 'Đăng ký thành công!' });
-          setTimeout(() => setCurrentMode('login'), 1500);
+          setLoginData(prev => ({ ...prev, username: phone }));
+          setTimeout(() => setCurrentMode('login'), 1200);
         } else {
           setStatusMsg({
             type: 'success',
             text: 'Đã gửi yêu cầu khôi phục mật khẩu. Vui lòng kiểm tra email.'
           });
-          setTimeout(() => setCurrentMode('login'), 2000);
+          setTimeout(() => setCurrentMode('login'), 1600);
         }
       } else {
         setStatusMsg({
@@ -1423,19 +1549,6 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear error when user types
-    if (errors[name]) {
-      setErrors(prev => {
-        const newErrs = { ...prev };
-        delete newErrs[name];
-        return newErrs;
-      });
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <motion.div 
@@ -1448,7 +1561,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className={`relative w-full ${currentMode === 'register' ? 'max-w-2xl' : 'max-w-md'} bg-white rounded-3xl shadow-2xl p-8 transition-all duration-300`}
+        className={`relative w-full ${currentMode === 'register' ? 'max-w-xl' : 'max-w-md'} bg-white rounded-3xl shadow-2xl p-8 transition-all duration-300`}
       >
         <button onClick={onClose} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600">
           <X size={20} />
@@ -1456,13 +1569,13 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
 
         <div className="mb-6">
           <h2 className="text-3xl font-display font-bold text-slate-900">
-            {currentMode === 'login' ? 'Chào mừng trở lại' : currentMode === 'register' ? 'Bắt đầu với LabBox' : 'Khôi phục mật khẩu'}
+            {currentMode === 'login' ? 'Chào mừng trở lại' : currentMode === 'register' ? 'Đăng ký tài khoản' : 'Khôi phục mật khẩu'}
           </h2>
           <p className="text-slate-500 mt-1">
             {currentMode === 'login'
               ? 'Đăng nhập để quản lý đơn hàng của bạn'
               : currentMode === 'register'
-              ? 'Tạo tài khoản để bảo vệ shop của bạn ngay hôm nay'
+              ? 'Hoàn tất đăng ký theo 4 bước'
               : 'Nhập email hoặc tên đăng nhập để nhận liên kết đặt lại mật khẩu'}
           </p>
         </div>
@@ -1476,105 +1589,49 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className={currentMode === 'register' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'space-y-4'}>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Tên đăng nhập</label>
-              <input 
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                type="text" 
-                className={`w-full px-4 py-2.5 rounded-xl border ${errors.username ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                placeholder="username" 
-              />
-              {errors.username && <p className="text-red-500 text-[10px] mt-1">{errors.username}</p>}
+          {currentMode === 'register' && (
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+              {[1, 2, 3, 4].map((s) => (
+                <div key={s} className={`flex items-center gap-2 ${s === 4 ? '' : 'flex-1'}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center border ${
+                    registerStep >= (s as RegisterStep) ? 'bg-brand border-brand text-white' : 'bg-white border-slate-200 text-slate-400'
+                  }`}>
+                    {s}
+                  </div>
+                  {s !== 4 && <div className={`h-px flex-1 ${registerStep > (s as RegisterStep) ? 'bg-brand' : 'bg-slate-200'}`} />}
+                </div>
+              ))}
             </div>
+          )}
 
-            {currentMode === 'register' && (
-              <>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Họ và Tên / Tên Shop</label>
-                  <input 
-                    name="full_name"
-                    value={formData.full_name}
-                    onChange={handleChange}
-                    type="text" 
-                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.full_name ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                    placeholder="Nguyễn Văn A" 
-                  />
-                  {errors.full_name && <p className="text-red-500 text-[10px] mt-1">{errors.full_name}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
-                  <input 
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    type="tel" 
-                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.phone ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                    placeholder="09xx xxx xxx" 
-                  />
-                  {errors.phone && <p className="text-red-500 text-[10px] mt-1">{errors.phone}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
-                  <input 
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    type="email" 
-                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.email ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                    placeholder="name@company.com" 
-                  />
-                  {errors.email && <p className="text-red-500 text-[10px] mt-1">{errors.email}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Gói dịch vụ</label>
-                  <select
-                    name="subscription_id"
-                    value={formData.subscription_id}
-                    onChange={(e) => {
-                      setFormData(prev => ({ ...prev, subscription_id: e.target.value }));
-                      if (errors.subscription_id) {
-                        setErrors(prev => {
-                          const n = { ...prev };
-                          delete n.subscription_id;
-                          return n;
-                        });
-                      }
-                    }}
-                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.subscription_id ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
-                  >
-                    {plansLoading ? (
-                      <option>Đang tải gói...</option>
-                    ) : plansError ? (
-                      <option disabled>{plansError}</option>
-                    ) : plans.length ? (
-                      plans.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}{typeof p.price === 'number' ? ` • ${(p.price * 1000).toLocaleString('vi-VN')}đ/tháng` : ''}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>Không có gói</option>
-                    )}
-                  </select>
-                  {errors.subscription_id && <p className="text-red-500 text-[10px] mt-1">{errors.subscription_id}</p>}
-                </div>
-              </>
-            )}
-
-            {currentMode !== 'forgot' && (
+          {currentMode === 'login' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Tên đăng nhập</label>
+                <input
+                  value={loginData.username}
+                  onChange={(e) => {
+                    setLoginData(prev => ({ ...prev, username: e.target.value }));
+                    clearFieldError('username');
+                  }}
+                  type="text"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.username ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                  placeholder="username"
+                />
+                {errors.username && <p className="text-red-500 text-[10px] mt-1">{errors.username}</p>}
+              </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
                 <div className="relative">
-                  <input 
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
+                  <input
+                    value={loginData.password}
+                    onChange={(e) => {
+                      setLoginData(prev => ({ ...prev, password: e.target.value }));
+                      clearFieldError('password');
+                    }}
                     type={showPass ? 'text' : 'password'}
-                    className={`w-full px-4 pr-10 py-2.5 rounded-xl border ${errors.password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                    placeholder="••••••••" 
+                    className={`w-full px-4 pr-10 py-2.5 rounded-xl border ${errors.password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                    placeholder="••••••••"
                   />
                   <button
                     type="button"
@@ -1600,44 +1657,300 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                   </button>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {currentMode === 'register' && (
+          {currentMode === 'forgot' && (
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Xác nhận mật khẩu</label>
-                <div className="relative">
-                  <input 
-                    name="confirm_password"
-                    value={formData.confirm_password}
-                    onChange={handleChange}
-                    type={showConfirm ? 'text' : 'password'}
-                    className={`w-full px-4 pr-10 py-2.5 rounded-xl border ${errors.confirm_password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                    placeholder="••••••••" 
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm(p => !p)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
-                    aria-label="toggle-confirm-password"
-                  >
-                    {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                {errors.confirm_password && <p className="text-red-500 text-[10px] mt-1">{errors.confirm_password}</p>}
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
+                <input
+                  value={forgotData.email}
+                  onChange={(e) => {
+                    setForgotData(prev => ({ ...prev, email: e.target.value }));
+                    clearFieldError('forgot');
+                  }}
+                  type="email"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all"
+                  placeholder="name@company.com"
+                />
               </div>
-            )}
-          </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Tên đăng nhập</label>
+                <input
+                  value={forgotData.username}
+                  onChange={(e) => {
+                    setForgotData(prev => ({ ...prev, username: e.target.value }));
+                    clearFieldError('forgot');
+                  }}
+                  type="text"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all"
+                  placeholder="username"
+                />
+              </div>
+              {errors.forgot && <p className="text-red-500 text-[10px] mt-1">{errors.forgot}</p>}
+            </div>
+          )}
 
-          <button 
-            disabled={isLoading}
-            className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          {currentMode === 'register' && (
+            <div className="space-y-4">
+              {registerStep === 1 && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
+                  <input
+                    value={registerData.phone}
+                    onChange={(e) => {
+                      setRegisterData(prev => ({ ...prev, phone: e.target.value }));
+                      clearFieldError('phone');
+                    }}
+                    type="tel"
+                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.phone ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                    placeholder="09xx xxx xxx"
+                  />
+                  {errors.phone && <p className="text-red-500 text-[10px] mt-1">{errors.phone}</p>}
+                </div>
+              )}
+
+              {registerStep === 2 && (
+                <div>
+                  <div className="flex items-center justify-between gap-4">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Mã OTP</label>
+                    <button
+                      type="button"
+                      onClick={sendOtp}
+                      disabled={isLoading || !!resendUntil}
+                      className="text-xs font-bold text-brand hover:underline disabled:text-slate-400 disabled:no-underline"
+                    >
+                      {resendUntil ? `Gửi lại (${resendSecondsLeft}s)` : 'Gửi lại'}
+                    </button>
+                  </div>
+                  <input
+                    value={registerData.otp}
+                    onChange={(e) => {
+                      setRegisterData(prev => ({ ...prev, otp: e.target.value }));
+                      clearFieldError('otp');
+                    }}
+                    type="text"
+                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.otp ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                    placeholder="Nhập mã OTP"
+                  />
+                  {errors.otp && <p className="text-red-500 text-[10px] mt-1">{errors.otp}</p>}
+                </div>
+              )}
+
+              {registerStep === 3 && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
+                    <div className="relative">
+                      <input
+                        value={registerData.password}
+                        onChange={(e) => {
+                          setRegisterData(prev => ({ ...prev, password: e.target.value }));
+                          clearFieldError('password');
+                        }}
+                        type={showPass ? 'text' : 'password'}
+                        className={`w-full px-4 pr-10 py-2.5 rounded-xl border ${errors.password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPass(p => !p)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                        aria-label="toggle-password"
+                      >
+                        {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {errors.password && <p className="text-red-500 text-[10px] mt-1">{errors.password}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Xác nhận mật khẩu</label>
+                    <div className="relative">
+                      <input
+                        value={registerData.confirm_password}
+                        onChange={(e) => {
+                          setRegisterData(prev => ({ ...prev, confirm_password: e.target.value }));
+                          clearFieldError('confirm_password');
+                        }}
+                        type={showConfirm ? 'text' : 'password'}
+                        className={`w-full px-4 pr-10 py-2.5 rounded-xl border ${errors.confirm_password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirm(p => !p)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                        aria-label="toggle-confirm-password"
+                      >
+                        {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {errors.confirm_password && <p className="text-red-500 text-[10px] mt-1">{errors.confirm_password}</p>}
+                  </div>
+                </>
+              )}
+
+              {registerStep === 4 && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Họ và Tên</label>
+                    <input
+                      value={registerData.full_name}
+                      onChange={(e) => {
+                        setRegisterData(prev => ({ ...prev, full_name: e.target.value }));
+                        clearFieldError('full_name');
+                      }}
+                      type="text"
+                      className={`w-full px-4 py-2.5 rounded-xl border ${errors.full_name ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                      placeholder="Nguyễn Văn A"
+                    />
+                    {errors.full_name && <p className="text-red-500 text-[10px] mt-1">{errors.full_name}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
+                    <input
+                      value={registerData.email}
+                      onChange={(e) => {
+                        setRegisterData(prev => ({ ...prev, email: e.target.value }));
+                        clearFieldError('email');
+                      }}
+                      type="email"
+                      className={`w-full px-4 py-2.5 rounded-xl border ${errors.email ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                      placeholder="name@company.com"
+                    />
+                    {errors.email && <p className="text-red-500 text-[10px] mt-1">{errors.email}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Ngày sinh</label>
+                    <input
+                      value={registerData.birth_date}
+                      onChange={(e) => {
+                        setRegisterData(prev => ({ ...prev, birth_date: e.target.value }));
+                        clearFieldError('birth_date');
+                      }}
+                      type="date"
+                      className={`w-full px-4 py-2.5 rounded-xl border ${errors.birth_date ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                    />
+                    {errors.birth_date && <p className="text-red-500 text-[10px] mt-1">{errors.birth_date}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Giới tính</label>
+                    <div className={`grid grid-cols-3 gap-3 ${errors.gender ? 'rounded-xl p-2 border border-red-200' : ''}`}>
+                      {([
+                        { value: 'Nam', label: 'Nam' },
+                        { value: 'Nữ', label: 'Nữ' },
+                        { value: 'Khác', label: 'Khác' },
+                      ] as const).map((opt) => (
+                        <label
+                          key={opt.value}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none transition-all ${
+                            registerData.gender === opt.value
+                              ? 'border-brand bg-brand/5'
+                              : 'border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={registerData.gender === opt.value}
+                            onChange={(e) => {
+                              setRegisterData(prev => ({
+                                ...prev,
+                                gender: e.target.checked ? opt.value : '',
+                              }));
+                              clearFieldError('gender');
+                            }}
+                            className="h-4 w-4 accent-brand"
+                          />
+                          <span className="text-sm font-semibold text-slate-700">{opt.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {errors.gender && <p className="text-red-500 text-[10px] mt-1">{errors.gender}</p>}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {currentMode === 'register' && registerStep > 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                setStatusMsg(null);
+                setErrors({});
+                setRegisterStep(s => (s > 1 ? ((s - 1) as RegisterStep) : s));
+              }}
+              className="w-full py-3 text-slate-600 font-bold rounded-xl bg-slate-100 hover:bg-slate-200 transition-all"
+            >
+              Quay lại
+            </button>
+          )}
+
+          {currentMode === 'register' ? (
+            registerStep === 1 ? (
+              <button
+                type="button"
+                onClick={sendOtp}
+                disabled={isLoading}
+                className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Gửi mã OTP qua Zalo ZNS'
+                )}
+              </button>
+            ) : registerStep === 2 ? (
+              <button
+                type="button"
+                onClick={verifyOtp}
+                disabled={isLoading}
+                className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Xác nhận mã'
+                )}
+              </button>
+            ) : registerStep === 3 ? (
+              <button
+                type="button"
+                onClick={verifyPasswordStep}
+                disabled={isLoading}
+                className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Xác minh'
+                )}
+              </button>
             ) : (
-              currentMode === 'login' ? 'Đăng nhập' : currentMode === 'register' ? 'Đăng ký tài khoản' : 'Gửi yêu cầu khôi phục'
-            )}
-          </button>
+              <button
+                disabled={isLoading}
+                className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Hoàn tất đăng ký'
+                )}
+              </button>
+            )
+          ) : (
+            <button
+              disabled={isLoading}
+              className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                currentMode === 'login' ? 'Đăng nhập' : 'Gửi yêu cầu khôi phục'
+              )}
+            </button>
+          )}
         </form>
 
         <div className="mt-8 pt-6 border-t border-slate-100 text-center">
@@ -1645,9 +1958,14 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
             {currentMode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
             <button 
               onClick={() => {
-                setCurrentMode(currentMode === 'login' ? 'register' : 'login');
+                const nextMode: AuthMode = currentMode === 'login' ? 'register' : 'login';
+                setCurrentMode(nextMode);
                 setStatusMsg(null);
                 setErrors({});
+                setRegisterStep(1);
+                setResendUntil(null);
+                setResendSecondsLeft(0);
+                setIsOtpVerified(false);
               }}
               className="ml-1 text-brand font-bold hover:underline"
             >
