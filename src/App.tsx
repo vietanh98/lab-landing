@@ -1250,7 +1250,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     full_name: '',
     email: '',
     birth_date: '',
-    gender: '' as '' | 'Nam' | 'Nữ' | 'Khác',
+    gender: '' as '' | 0 | 1 | 2,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -1359,7 +1359,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     if (!registerData.full_name) next.full_name = 'Vui lòng nhập họ và tên';
     if (!registerData.email || !/\S+@\S+\.\S+/.test(registerData.email)) next.email = 'Email không hợp lệ';
     if (!registerData.birth_date) next.birth_date = 'Vui lòng chọn ngày sinh';
-    if (!registerData.gender) next.gender = 'Vui lòng chọn giới tính';
+    if (registerData.gender === '') next.gender = 'Vui lòng chọn giới tính';
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -1835,34 +1835,46 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Giới tính</label>
-                    <div className={`grid grid-cols-3 gap-3 ${errors.gender ? 'rounded-xl p-2 border border-red-200' : ''}`}>
+                    <div className={`grid grid-cols-3 gap-3 ${errors.gender ? 'rounded-2xl p-2 border border-red-200 bg-red-50/30' : ''}`}>
                       {([
-                        { value: 'Nam', label: 'Nam' },
-                        { value: 'Nữ', label: 'Nữ' },
-                        { value: 'Khác', label: 'Khác' },
+                        { value: 1, label: 'Nam' },
+                        { value: 2, label: 'Nữ' },
+                        { value: 0, label: 'Khác' },
                       ] as const).map((opt) => (
+                        (() => {
+                          const selected = registerData.gender === opt.value;
+                          return (
                         <label
                           key={opt.value}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none transition-all ${
-                            registerData.gender === opt.value
-                              ? 'border-brand bg-brand/5'
-                              : 'border-slate-200 hover:border-slate-300'
+                          className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none transition-all focus-within:ring-2 focus-within:ring-brand/20 ${
+                            selected
+                              ? 'border-brand bg-brand text-white shadow-lg shadow-brand/20'
+                              : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700'
                           }`}
                         >
                           <input
-                            type="checkbox"
+                            type="radio"
+                            name="gender"
                             checked={registerData.gender === opt.value}
                             onChange={(e) => {
-                              setRegisterData(prev => ({
-                                ...prev,
-                                gender: e.target.checked ? opt.value : '',
-                              }));
+                              if (!e.target.checked) return;
+                              setRegisterData(prev => ({ ...prev, gender: opt.value }));
                               clearFieldError('gender');
                             }}
-                            className="h-4 w-4 accent-brand"
+                            className="sr-only"
                           />
-                          <span className="text-sm font-semibold text-slate-700">{opt.label}</span>
+                          <span
+                            className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${
+                              selected ? 'border-white/80' : 'border-slate-400'
+                            }`}
+                            aria-hidden="true"
+                          >
+                            <span className={`h-2 w-2 rounded-full ${selected ? 'bg-white' : 'bg-transparent'}`} />
+                          </span>
+                          <span className={`text-sm font-semibold ${selected ? 'text-white' : 'text-slate-700'}`}>{opt.label}</span>
                         </label>
+                          );
+                        })()
                       ))}
                     </div>
                     {errors.gender && <p className="text-red-500 text-[10px] mt-1">{errors.gender}</p>}
