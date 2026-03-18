@@ -26,66 +26,189 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
     email: '',
     full_name: '',
     phone: '',
+    otp: '',
     password: '',
     confirm_password: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [registerStep, setRegisterStep] = useState<1 | 2 | 3>(1);
+  const [resendUntil, setResendUntil] = useState<number | null>(null);
+  const [resendSecondsLeft, setResendSecondsLeft] = useState<number>(0);
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setCurrentMode(mode);
+    setErrors({});
+    setStatusMsg(null);
+    setIsLoading(false);
+    setRegisterStep(1);
+    setResendUntil(null);
+    setResendSecondsLeft(0);
+    setIsOtpVerified(false);
+    setFormData(prev => ({ ...prev, otp: '' }));
+  }, [isOpen, mode]);
+
+  React.useEffect(() => {
+    if (!resendUntil) return;
+    const tick = () => {
+      const s = Math.max(0, Math.ceil((resendUntil - Date.now()) / 1000));
+      setResendSecondsLeft(s);
+      if (s === 0) setResendUntil(null);
+    };
+    tick();
+    const t = window.setInterval(tick, 1000);
+    return () => window.clearInterval(t);
+  }, [resendUntil]);
 
   if (!isOpen) return null;
 
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.username) {
-      newErrors.username = 'Vui lòng nhập tên đăng nhập';
-    } else if (currentMode === 'register' && formData.username.length < 3) {
-      newErrors.username = 'Tên đăng nhập phải có ít nhất 3 ký tự';
+  const clearFieldError = (name: string) => {
+    if (!errors[name]) return;
+    setErrors(prev => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
+  const phoneRegex = /^(?:\+?84|0)(3|5|7|8|9)\d{8}$/;
+  const normalizePhone = (raw: string) => {
+    const p = String(raw || '').trim().replace(/\s+/g, '');
+    if (!p) return p;
+    if (p.startsWith('+84')) return p;
+    if (p.startsWith('+')) return p;
+    if (p.startsWith('84')) return `+${p}`;
+    if (p.startsWith('0')) return `+84${p.slice(1)}`;
+    return p;
+  };
+
+  const getApiBase = () => import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  const isApiOk = (res: Response, data: any) =>
+    res.ok && (data?.status === true || data?.status_code === 0 || data?.success === true);
+
+  const validateLogin = () => {
+    const next: Record<string, string> = {};
+    if (!formData.username) next.username = 'Vui lòng nhập tên đăng nhập';
+    if (!formData.password) next.password = 'Vui lòng nhập mật khẩu';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const validateRegisterStep1 = () => {
+    const next: Record<string, string> = {};
+    const normalized = normalizePhone(formData.phone);
+    if (!normalized || !phoneRegex.test(normalized)) next.phone = 'Số điện thoại không hợp lệ (VD: +84901234567)';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const validateRegisterStep2 = () => {
+    const next: Record<string, string> = {};
+    if (!formData.otp) next.otp = 'Vui lòng nhập mã OTP';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const validateRegisterStep3 = () => {
+    const next: Record<string, string> = {};
+    if (!formData.username) next.username = 'Vui lòng nhập tên đăng nhập';
+    else if (formData.username.length < 3) next.username = 'Tên đăng nhập phải có ít nhất 3 ký tự';
+    if (!formData.full_name) next.full_name = 'Vui lòng nhập họ và tên hoặc tên shop';
+    if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) next.email = 'Email không hợp lệ';
+    if (!formData.password || formData.password.length < 6) next.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+    if (formData.password !== formData.confirm_password) next.confirm_password = 'Mật khẩu xác nhận không khớp';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const sendOtp = async () => {
+    setStatusMsg(null);
+    if (!validateRegisterStep1()) return;
+    setIsOtpVerified(false);
+    setIsLoading(true);
+    try {
+      const apiBase = getApiBase();
+      const phone = normalizePhone(formData.phone);
+      setFormData(prev => ({ ...prev, phone }));
+
+      const res = await fetch(`${apiBase}/api/v1/auth/otp/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/plain, */*',
+        },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!isApiOk(res, data)) {
+        setStatusMsg({ type: 'error', text: data?.message || 'Gửi OTP không thành công. Vui lòng thử lại.' });
+        return;
+      }
+      setResendUntil(Date.now() + 30 * 1000);
+      setStatusMsg({ type: 'success', text: 'Đã gửi mã OTP thành công.' });
+      setRegisterStep(2);
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: e?.message || 'Gửi OTP không thành công. Vui lòng thử lại.' });
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    if (currentMode === 'register') {
-      const phoneRegex = /^(0|84)(3|5|7|8|9)([0-9]{8})$/;
-      if (!formData.phone || !phoneRegex.test(formData.phone)) {
-        newErrors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678)';
-      }
+  const verifyOtp = async () => {
+    setStatusMsg(null);
+    if (!validateRegisterStep2()) return;
+    setIsLoading(true);
+    try {
+      const apiBase = getApiBase();
+      const phone = normalizePhone(formData.phone);
+      setFormData(prev => ({ ...prev, phone }));
 
-      if (!formData.password || formData.password.length < 6) {
-        newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+      const res = await fetch(`${apiBase}/api/v1/auth/otp/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/plain, */*',
+        },
+        body: JSON.stringify({ phone, code: formData.otp.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!isApiOk(res, data)) {
+        setErrors({ otp: data?.message || 'Mã OTP không đúng' });
+        return;
       }
-
-      if (formData.password !== formData.confirm_password) {
-        newErrors.confirm_password = 'Mật khẩu xác nhận không khớp';
-      }
-      
-      if (!formData.full_name) {
-        newErrors.full_name = 'Vui lòng nhập họ và tên hoặc tên shop';
-      }
-
-      if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) {
-        newErrors.email = 'Email không hợp lệ';
-      }
-    } else {
-      if (!formData.password) {
-        newErrors.password = 'Vui lòng nhập mật khẩu';
-      }
+      setStatusMsg({ type: 'success', text: 'Xác nhận mã OTP thành công.' });
+      setIsOtpVerified(true);
+      setRegisterStep(3);
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: e?.message || 'Không thể xác nhận OTP. Vui lòng thử lại.' });
+    } finally {
+      setIsLoading(false);
     }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setStatusMsg(null);
 
-  if (!validate()) return;
+  if (currentMode === 'login') {
+    if (!validateLogin()) return;
+  } else {
+    if (registerStep !== 3) return;
+    if (!isOtpVerified) {
+      setRegisterStep(2);
+      setErrors({ otp: 'Vui lòng xác nhận OTP trước' });
+      return;
+    }
+    if (!validateRegisterStep3()) return;
+  }
 
   setIsLoading(true);
 
   try {
-    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-    // Xác định endpoint dựa trên mode hiện tại
+    const apiBase = getApiBase();
     const endpoint = currentMode === 'login' 
       ? `${apiBase}/api/v1/auth/login` 
       : `${apiBase}/api/v1/auth/register`;
@@ -94,13 +217,17 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Accept': 'application/json, text/plain, */*',
-        // Thêm timestamp nếu backend yêu cầu như trong curl của bạn
-        'X-Timestamp': Date.now().toString()
+        'Accept': 'application/json, text/plain, */*'
       },
-      // Với login, backend thường yêu cầu username/password. 
-      // Đảm bảo formData của bạn có các key này.
-      body: JSON.stringify(formData)
+      body: JSON.stringify(
+        currentMode === 'login'
+          ? { username: formData.username, password: formData.password }
+          : (() => {
+              const phone = normalizePhone(formData.phone);
+              const { otp, ...rest } = formData;
+              return { ...rest, phone };
+            })()
+      )
     });
 
     const data = await response.json();
@@ -141,13 +268,7 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => {
-        const newErrs = { ...prev };
-        delete newErrs[name];
-        return newErrs;
-      });
-    }
+    clearFieldError(name);
   };
 
   return (
@@ -186,100 +307,214 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className={currentMode === 'register' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'space-y-4'}>
+          {currentMode === 'login' ? (
+            <>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Tên đăng nhập</label>
+                <input
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  type="text"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.username ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                  placeholder="username"
+                />
+                {errors.username && <p className="text-red-500 text-[10px] mt-1">{errors.username}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
+                <input
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  type="password"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                  placeholder="••••••••"
+                />
+                {errors.password && <p className="text-red-500 text-[10px] mt-1">{errors.password}</p>}
+              </div>
+            </>
+          ) : registerStep === 1 ? (
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Tên đăng nhập</label>
-              <input 
-                name="username"
-                value={formData.username}
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
+              <input
+                name="phone"
+                value={formData.phone}
                 onChange={handleChange}
-                type="text" 
-                className={`w-full px-4 py-2.5 rounded-xl border ${errors.username ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                placeholder="username" 
+                type="tel"
+                className={`w-full px-4 py-2.5 rounded-xl border ${errors.phone ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                placeholder="+84xxxxxxxxx"
               />
-              {errors.username && <p className="text-red-500 text-[10px] mt-1">{errors.username}</p>}
+              {errors.phone && <p className="text-red-500 text-[10px] mt-1">{errors.phone}</p>}
             </div>
-
-            {currentMode === 'register' && (
-              <>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Họ và Tên / Tên Shop</label>
-                  <input 
-                    name="full_name"
-                    value={formData.full_name}
-                    onChange={handleChange}
-                    type="text" 
-                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.full_name ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                    placeholder="Nguyễn Văn A" 
-                  />
-                  {errors.full_name && <p className="text-red-500 text-[10px] mt-1">{errors.full_name}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
-                  <input 
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    type="tel" 
-                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.phone ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                    placeholder="09xx xxx xxx" 
-                  />
-                  {errors.phone && <p className="text-red-500 text-[10px] mt-1">{errors.phone}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
-                  <input 
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    type="email" 
-                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.email ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                    placeholder="name@company.com" 
-                  />
-                  {errors.email && <p className="text-red-500 text-[10px] mt-1">{errors.email}</p>}
-                </div>
-              </>
-            )}
-
+          ) : registerStep === 2 ? (
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
-              <input 
-                name="password"
-                value={formData.password}
+              <div className="flex items-center justify-between gap-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Mã OTP</label>
+                <button
+                  type="button"
+                  onClick={sendOtp}
+                  disabled={isLoading || !!resendUntil}
+                  className="text-xs font-bold text-brand hover:underline disabled:text-slate-400 disabled:no-underline"
+                >
+                  {resendUntil ? `Gửi lại (${resendSecondsLeft}s)` : 'Gửi lại'}
+                </button>
+              </div>
+              <input
+                name="otp"
+                value={formData.otp}
                 onChange={handleChange}
-                type="password" 
-                className={`w-full px-4 py-2.5 rounded-xl border ${errors.password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                placeholder="••••••••" 
+                type="text"
+                className={`w-full px-4 py-2.5 rounded-xl border ${errors.otp ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                placeholder="Nhập mã OTP"
               />
-              {errors.password && <p className="text-red-500 text-[10px] mt-1">{errors.password}</p>}
+              {errors.otp && <p className="text-red-500 text-[10px] mt-1">{errors.otp}</p>}
             </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
+                <input
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  type="tel"
+                  readOnly
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+                />
+              </div>
 
-            {currentMode === 'register' && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Tên đăng nhập</label>
+                <input
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  type="text"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.username ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                  placeholder="username"
+                />
+                {errors.username && <p className="text-red-500 text-[10px] mt-1">{errors.username}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Họ và Tên / Tên Shop</label>
+                <input
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleChange}
+                  type="text"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.full_name ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                  placeholder="Nguyễn Văn A"
+                />
+                {errors.full_name && <p className="text-red-500 text-[10px] mt-1">{errors.full_name}</p>}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
+                <input
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  type="email"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.email ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                  placeholder="name@company.com"
+                />
+                {errors.email && <p className="text-red-500 text-[10px] mt-1">{errors.email}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
+                <input
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  type="password"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                  placeholder="••••••••"
+                />
+                {errors.password && <p className="text-red-500 text-[10px] mt-1">{errors.password}</p>}
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Xác nhận mật khẩu</label>
-                <input 
+                <input
                   name="confirm_password"
                   value={formData.confirm_password}
                   onChange={handleChange}
-                  type="password" 
-                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.confirm_password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`} 
-                  placeholder="••••••••" 
+                  type="password"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.confirm_password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                  placeholder="••••••••"
                 />
                 {errors.confirm_password && <p className="text-red-500 text-[10px] mt-1">{errors.confirm_password}</p>}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          <button 
-            disabled={isLoading}
-            className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              currentMode === 'login' ? 'Đăng nhập' : 'Đăng ký tài khoản'
-            )}
-          </button>
+          {currentMode === 'register' && registerStep > 1 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setStatusMsg(null);
+                setErrors({});
+                setRegisterStep(s => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s));
+              }}
+              className="w-full py-3 text-slate-600 font-bold rounded-xl bg-slate-100 hover:bg-slate-200 transition-all"
+            >
+              Quay lại
+            </button>
+          ) : null}
+
+          {currentMode === 'login' ? (
+            <button
+              disabled={isLoading}
+              className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Đăng nhập'
+              )}
+            </button>
+          ) : registerStep === 1 ? (
+            <button
+              type="button"
+              onClick={sendOtp}
+              disabled={isLoading}
+              className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Gửi mã OTP'
+              )}
+            </button>
+          ) : registerStep === 2 ? (
+            <button
+              type="button"
+              onClick={verifyOtp}
+              disabled={isLoading}
+              className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Xác thực OTP'
+              )}
+            </button>
+          ) : (
+            <button
+              disabled={isLoading}
+              className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Đăng ký tài khoản'
+              )}
+            </button>
+          )}
         </form>
 
         <div className="mt-8 pt-6 border-t border-slate-100 text-center">
@@ -290,6 +525,11 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
                 setCurrentMode(currentMode === 'login' ? 'register' : 'login');
                 setStatusMsg(null);
                 setErrors({});
+                setRegisterStep(1);
+                setResendUntil(null);
+                setResendSecondsLeft(0);
+                setIsOtpVerified(false);
+                setFormData(prev => ({ ...prev, otp: '' }));
               }}
               className="ml-2 text-brand font-bold hover:underline"
             >
@@ -318,11 +558,9 @@ const Navbar = ({ onOpenAuth }: { onOpenAuth: (mode: 'login' | 'register') => vo
     }`}>
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center shadow-lg shadow-brand/20">
-            <Video className="text-white w-6 h-6" />
-          </div>
-          <span className="text-2xl font-display font-bold tracking-tight text-slate-900">
-            LabBox<span className="text-brand">™</span>
+          <img src="/logo.png" alt="LabBox Logo" className="w-10 h-10 object-contain rounded-xl shadow-lg shadow-brand/20" />
+          <span className="text-xl font-display font-bold tracking-tight text-slate-900">
+            LabBox
           </span>
         </div>
 
@@ -662,11 +900,9 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
             <div className="col-span-1 md:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 mb-6">
-                <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center">
-                  <Video className="text-white w-5 h-5" />
-                </div>
+                <img src="/logo.png" alt="LabBox Logo" className="w-8 h-8 object-contain rounded-lg" />
                 <span className="text-xl font-display font-bold tracking-tight text-slate-900">
-                  LabBox<span className="text-brand">™</span>
+                  LabBox
                 </span>
               </div>
               <p className="text-slate-500 mb-8 leading-relaxed">

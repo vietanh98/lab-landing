@@ -126,10 +126,8 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
         <div className="p-6 flex items-center gap-2">
-          <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center">
-            <Box className="text-white w-5 h-5" />
-          </div>
-          <span className="text-xl font-display font-bold text-slate-900">LabBox<span className="text-brand">™</span></span>
+          <img src="/logo.png" alt="LabBox Logo" className="w-8 h-8 object-contain rounded-lg" />
+          <span className="text-xl font-display font-bold text-slate-900">LabBox</span>
         </div>
 
         <nav className="flex-1 px-4 py-4 space-y-1">

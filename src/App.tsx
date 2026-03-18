@@ -1162,11 +1162,9 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center shadow-lg shadow-brand/20">
-              <Box className="text-white w-6 h-6" />
-            </div>
+            <img src="/logo.png" alt="LabBox Logo" className="w-10 h-10 object-contain rounded-xl shadow-lg shadow-brand/20" />
             <span className="text-2xl font-display font-bold tracking-tight text-slate-900">
-              LabBox<span className="text-brand">™</span>
+              LabBox
             </span>
           </div>
 
@@ -1394,8 +1392,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
       }
 
       setResendUntil(Date.now() + 30 * 1000);
-      if (import.meta.env.DEV) setRegisterData(prev => ({ ...prev, otp: '123456' }));
-      setStatusMsg({ type: 'success', text: 'Đã gửi mã OTP qua Zalo ZNS.' });
+      setStatusMsg({ type: 'success', text: 'Đã gửi mã OTP thành công.' });
       setRegisterStep(2);
     } catch (e: any) {
       setStatusMsg({ type: 'error', text: e?.message || 'Gửi OTP không thành công. Vui lòng thử lại.' });
@@ -2375,12 +2372,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
           <div className="grid md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-2">
               <div className="flex items-center gap-2 mb-6">
-                <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center">
-                  <Box className="text-white w-5 h-5" />
-                </div>
-                <span className="text-xl font-display font-bold tracking-tight text-slate-900">
-                  LabBox<span className="text-brand">™</span>
-                </span>
+                <img src="/logo.png" alt="LabBox Logo" className="w-8 h-8 object-contain rounded-lg" />
               </div>
               <p className="text-slate-500 max-w-sm mb-8">
                 Ứng dụng hỗ trợ quay video đóng hàng thông minh. Giải pháp tối ưu cho nhà bán hàng thời đại số.
