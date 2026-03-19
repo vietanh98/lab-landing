@@ -55,6 +55,7 @@ import SubscriptionManagement from './components/cms/SubscriptionManagement';
 import Profile from './components/cms/Profile';
 
 // --- Components ---
+declare var grecaptcha: any;
 
 const CMS = ({ onLogout }: { onLogout: () => void }) => {
   const navigate = useNavigate();
@@ -1374,6 +1375,19 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
       const phone = normalizePhone(registerData.phone);
       setRegisterData(prev => ({ ...prev, phone }));
 
+      // Get reCAPTCHA token
+      const recaptchaToken = await new Promise<string>((resolve, reject) => {
+        if (typeof grecaptcha === 'undefined') {
+          reject(new Error('Hệ thống bảo vệ reCAPTCHA chưa sẵn sàng. Vui lòng tải lại trang.'));
+          return;
+        }
+        grecaptcha.ready(() => {
+          grecaptcha.execute('6LdVy48sAAAAAARFNw8u9EELmrV_liJTcD-Cr-uY', { action: 'send_otp' })
+            .then((token: string) => resolve(token))
+            .catch(reject);
+        });
+      });
+
       const endpoint = `${apiBase}/api/v1/auth/otp/send`;
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -1382,7 +1396,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
           Accept: 'application/json, text/plain, */*',
           'X-Timestamp': Date.now().toString(),
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, token: recaptchaToken }),
       });
       const data = await res.json().catch(() => ({}));
       const ok = isApiOk(res, data);

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Video, 
-  Shield, 
-  Zap, 
-  CheckCircle2, 
-  Play, 
-  ChevronRight, 
+import {
+  Video,
+  Shield,
+  Zap,
+  CheckCircle2,
+  Play,
+  ChevronRight,
   Star,
   Facebook,
   Twitter,
@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 
 // Re-import AuthModal or define it here. Since it was in App.tsx, I'll move it here.
+declare var grecaptcha: any;
+
 const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' | 'register', onClose: () => void }) => {
   const [currentMode, setCurrentMode] = useState(mode);
   const [formData, setFormData] = useState({
@@ -134,13 +136,26 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
       const phone = normalizePhone(formData.phone);
       setFormData(prev => ({ ...prev, phone }));
 
+      // Get reCAPTCHA token
+      const recaptchaToken = await new Promise<string>((resolve, reject) => {
+        if (typeof grecaptcha === 'undefined') {
+          reject(new Error('Hệ thống bảo vệ reCAPTCHA chưa sẵn sàng. Vui lòng tải lại trang.'));
+          return;
+        }
+        grecaptcha.ready(() => {
+          grecaptcha.execute('6LdVy48sAAAAAARFNw8u9EELmrV_liJTcD-Cr-uY', { action: 'send_otp' })
+            .then((token: string) => resolve(token))
+            .catch(reject);
+        });
+      });
+
       const res = await fetch(`${apiBase}/api/v1/auth/otp/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json, text/plain, */*',
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, token: recaptchaToken }),
       });
       const data = await res.json().catch(() => ({}));
       if (!isApiOk(res, data)) {
@@ -190,80 +205,80 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setStatusMsg(null);
+    e.preventDefault();
+    setStatusMsg(null);
 
-  if (currentMode === 'login') {
-    if (!validateLogin()) return;
-  } else {
-    if (registerStep !== 3) return;
-    if (!isOtpVerified) {
-      setRegisterStep(2);
-      setErrors({ otp: 'Vui lòng xác nhận OTP trước' });
-      return;
+    if (currentMode === 'login') {
+      if (!validateLogin()) return;
+    } else {
+      if (registerStep !== 3) return;
+      if (!isOtpVerified) {
+        setRegisterStep(2);
+        setErrors({ otp: 'Vui lòng xác nhận OTP trước' });
+        return;
+      }
+      if (!validateRegisterStep3()) return;
     }
-    if (!validateRegisterStep3()) return;
-  }
 
-  setIsLoading(true);
+    setIsLoading(true);
 
-  try {
-    const apiBase = getApiBase();
-    const endpoint = currentMode === 'login' 
-      ? `${apiBase}/api/v1/auth/login` 
-      : `${apiBase}/api/v1/auth/register`;
+    try {
+      const apiBase = getApiBase();
+      const endpoint = currentMode === 'login'
+        ? `${apiBase}/api/v1/auth/login`
+        : `${apiBase}/api/v1/auth/register`;
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json, text/plain, */*'
-      },
-      body: JSON.stringify(
-        currentMode === 'login'
-          ? { username: formData.username, password: formData.password }
-          : (() => {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/plain, */*'
+        },
+        body: JSON.stringify(
+          currentMode === 'login'
+            ? { username: formData.username, password: formData.password }
+            : (() => {
               const phone = normalizePhone(formData.phone);
               const { otp, ...rest } = formData;
               return { ...rest, phone };
             })()
-      )
-    });
-
-    const data = await response.json();
-    const apiSuccess = response.ok && (data?.status === true || data?.status_code === 0);
-
-    if (apiSuccess) {
-      if (currentMode === 'login') {
-        setStatusMsg({ type: 'success', text: 'Đăng nhập thành công! Đang chuyển hướng...' });
-        
-        // Lưu thông tin đăng nhập (API trả token tại data.data.access_token)
-        const token = data?.data?.access_token || data?.access_token || data?.token;
-        if (token) localStorage.setItem('token', token);
-        localStorage.setItem('user_info', JSON.stringify(data.data || data || {}));
-
-        setTimeout(() => {
-          window.location.href = '/cms';
-        }, 1000);
-      } else {
-        // Mode Đăng ký
-        setStatusMsg({ type: 'success', text: 'Đăng ký thành công!' });
-        setTimeout(() => setCurrentMode('login'), 2000);
-      }
-    } else {
-      // Hiển thị lỗi cụ thể từ API trả về (ví dụ: "Sai mật khẩu", "User không tồn tại")
-      setStatusMsg({ 
-        type: 'error', 
-        text: data?.message || data?.errors?.[0] || (currentMode === 'login' ? 'Đăng nhập thất bại' : 'Đăng ký thất bại') 
+        )
       });
+
+      const data = await response.json();
+      const apiSuccess = response.ok && (data?.status === true || data?.status_code === 0);
+
+      if (apiSuccess) {
+        if (currentMode === 'login') {
+          setStatusMsg({ type: 'success', text: 'Đăng nhập thành công! Đang chuyển hướng...' });
+
+          // Lưu thông tin đăng nhập (API trả token tại data.data.access_token)
+          const token = data?.data?.access_token || data?.access_token || data?.token;
+          if (token) localStorage.setItem('token', token);
+          localStorage.setItem('user_info', JSON.stringify(data.data || data || {}));
+
+          setTimeout(() => {
+            window.location.href = '/cms';
+          }, 1000);
+        } else {
+          // Mode Đăng ký
+          setStatusMsg({ type: 'success', text: 'Đăng ký thành công!' });
+          setTimeout(() => setCurrentMode('login'), 2000);
+        }
+      } else {
+        // Hiển thị lỗi cụ thể từ API trả về (ví dụ: "Sai mật khẩu", "User không tồn tại")
+        setStatusMsg({
+          type: 'error',
+          text: data?.message || data?.errors?.[0] || (currentMode === 'login' ? 'Đăng nhập thất bại' : 'Đăng ký thất bại')
+        });
+      }
+    } catch (error) {
+      console.error("Auth Error:", error);
+      setStatusMsg({ type: 'error', text: 'Không thể kết nối đến máy chủ.' });
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error("Auth Error:", error);
-    setStatusMsg({ type: 'error', text: 'Không thể kết nối đến máy chủ.' });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -273,14 +288,14 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
       />
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className={`relative w-full ${currentMode === 'register' ? 'max-w-2xl' : 'max-w-md'} bg-white rounded-3xl shadow-2xl p-8 transition-all duration-300`}
@@ -299,9 +314,8 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
         </div>
 
         {statusMsg && (
-          <div className={`mb-6 p-4 rounded-xl text-sm font-medium ${
-            statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
-          }`}>
+          <div className={`mb-6 p-4 rounded-xl text-sm font-medium ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
+            }`}>
             {statusMsg.text}
           </div>
         )}
@@ -520,7 +534,7 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
         <div className="mt-8 pt-6 border-t border-slate-100 text-center">
           <p className="text-sm text-slate-500">
             {currentMode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
-            <button 
+            <button
               onClick={() => {
                 setCurrentMode(currentMode === 'login' ? 'register' : 'login');
                 setStatusMsg(null);
@@ -553,9 +567,8 @@ const Navbar = ({ onOpenAuth }: { onOpenAuth: (mode: 'login' | 'register') => vo
   }, []);
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isScrolled ? 'bg-white/80 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-6'
-    }`}>
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/80 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-6'
+      }`}>
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <img src="/logo.png" alt="LabBox Logo" className="w-10 h-10 object-contain rounded-xl shadow-lg shadow-brand/20" />
@@ -573,13 +586,13 @@ const Navbar = ({ onOpenAuth }: { onOpenAuth: (mode: 'login' | 'register') => vo
         </div>
 
         <div className="hidden md:flex items-center gap-4">
-          <button 
+          <button
             onClick={() => onOpenAuth('login')}
             className="px-5 py-2.5 text-sm font-bold text-slate-700 hover:text-brand transition-colors"
           >
             Đăng nhập
           </button>
-          <button 
+          <button
             onClick={() => onOpenAuth('register')}
             className="px-6 py-2.5 bg-brand hover:bg-brand-dark text-white text-sm font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-95"
           >
@@ -587,7 +600,7 @@ const Navbar = ({ onOpenAuth }: { onOpenAuth: (mode: 'login' | 'register') => vo
           </button>
         </div>
 
-        <button 
+        <button
           className="md:hidden p-2 text-slate-600"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
@@ -597,7 +610,7 @@ const Navbar = ({ onOpenAuth }: { onOpenAuth: (mode: 'login' | 'register') => vo
 
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -608,13 +621,13 @@ const Navbar = ({ onOpenAuth }: { onOpenAuth: (mode: 'login' | 'register') => vo
                 <a key={item} href="#" className="text-lg font-semibold text-slate-600">{item}</a>
               ))}
               <hr className="border-slate-100" />
-              <button 
+              <button
                 onClick={() => { onOpenAuth('login'); setIsMobileMenuOpen(false); }}
                 className="w-full py-3 text-center font-bold text-slate-700"
               >
                 Đăng nhập
               </button>
-              <button 
+              <button
                 onClick={() => { onOpenAuth('register'); setIsMobileMenuOpen(false); }}
                 className="w-full py-4 bg-brand text-white font-bold rounded-xl"
               >
@@ -663,11 +676,11 @@ export default function LandingPage() {
                 Bằng chứng thép cho <span className="text-brand">mọi đơn hàng</span> của bạn.
               </h1>
               <p className="text-xl text-slate-600 mb-10 leading-relaxed max-w-xl">
-                LabBox giúp các nhà bán hàng Shopee, TikTok, Lazada quay video đóng gói 4K tự động, 
+                LabBox giúp các nhà bán hàng Shopee, TikTok, Lazada quay video đóng gói 4K tự động,
                 truy xuất nhanh chóng khi có khiếu nại. Bảo vệ shop, giảm hoàn hàng.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <button 
+                <button
                   onClick={() => openAuth('register')}
                   className="px-8 py-4 bg-brand hover:bg-brand-dark text-white font-bold rounded-2xl shadow-xl shadow-brand/20 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
                 >
@@ -679,7 +692,7 @@ export default function LandingPage() {
                   Xem demo 2 phút
                 </button>
               </div>
-              
+
               <div className="mt-12 flex items-center gap-4">
                 <div className="flex -space-x-3">
                   {[1, 2, 3, 4].map(i => (
@@ -704,9 +717,9 @@ export default function LandingPage() {
               className="relative"
             >
               <div className="relative z-10 bg-white rounded-[2.5rem] p-4 shadow-2xl border border-slate-100">
-                <img 
-                  src="https://picsum.photos/seed/dashboard/1200/800" 
-                  alt="LabBox Dashboard" 
+                <img
+                  src="https://picsum.photos/seed/dashboard/1200/800"
+                  alt="LabBox Dashboard"
                   className="rounded-[2rem] w-full"
                   referrerPolicy="no-referrer"
                 />
@@ -724,7 +737,7 @@ export default function LandingPage() {
           <div className="text-center max-w-3xl mx-auto mb-20">
             <h2 className="text-4xl font-display font-bold mb-6">Tính năng vượt trội</h2>
             <p className="text-lg text-slate-600">
-              Chúng tôi xây dựng LabBox với mục tiêu duy nhất: Giúp bạn yên tâm bán hàng, 
+              Chúng tôi xây dựng LabBox với mục tiêu duy nhất: Giúp bạn yên tâm bán hàng,
               mọi việc đối soát đã có chúng tôi lo.
             </p>
           </div>
@@ -832,9 +845,8 @@ export default function LandingPage() {
                 popular: false
               }
             ].map((plan, i) => (
-              <div key={i} className={`relative p-10 rounded-[3rem] border transition-all ${
-                plan.popular ? 'bg-brand border-brand scale-105 z-10 shadow-2xl shadow-brand/20' : 'bg-white/5 border-white/10'
-              }`}>
+              <div key={i} className={`relative p-10 rounded-[3rem] border transition-all ${plan.popular ? 'bg-brand border-brand scale-105 z-10 shadow-2xl shadow-brand/20' : 'bg-white/5 border-white/10'
+                }`}>
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-white text-brand px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider">
                     Phổ biến nhất
@@ -854,11 +866,10 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <button 
+                <button
                   onClick={() => openAuth('register')}
-                  className={`w-full py-4 rounded-2xl font-bold transition-all ${
-                    plan.popular ? 'bg-white text-brand hover:bg-slate-100' : 'bg-brand text-white hover:bg-brand-dark'
-                  }`}
+                  className={`w-full py-4 rounded-2xl font-bold transition-all ${plan.popular ? 'bg-white text-brand hover:bg-slate-100' : 'bg-brand text-white hover:bg-brand-dark'
+                    }`}
                 >
                   {plan.cta}
                 </button>
@@ -880,7 +891,7 @@ export default function LandingPage() {
               Tham gia cùng 2,000+ nhà bán hàng thông thái đã chọn LabBox để tối ưu quy trình và bảo vệ lợi nhuận.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button 
+              <button
                 onClick={() => openAuth('register')}
                 className="px-10 py-5 bg-brand hover:bg-brand-dark text-white font-bold rounded-2xl shadow-xl shadow-brand/20 transition-all hover:scale-105 active:scale-95"
               >
@@ -961,10 +972,10 @@ export default function LandingPage() {
 
       <AnimatePresence>
         {authModal.isOpen && (
-          <AuthModal 
-            isOpen={authModal.isOpen} 
-            mode={authModal.mode} 
-            onClose={closeAuth} 
+          <AuthModal
+            isOpen={authModal.isOpen}
+            mode={authModal.mode}
+            onClose={closeAuth}
           />
         )}
       </AnimatePresence>
