@@ -144,7 +144,7 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
         }
         grecaptcha.ready(() => {
           grecaptcha.execute('6LdVy48sAAAAAARFNw8u9EELmrV_liJTcD-Cr-uY', { action: 'send_otp' })
-            .then((token: string) => resolve(token))
+            .then((recaptcha_token: string) => resolve(recaptcha_token))
             .catch(reject);
         });
       });
@@ -155,7 +155,7 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
           'Content-Type': 'application/json',
           Accept: 'application/json, text/plain, */*',
         },
-        body: JSON.stringify({ phone, token: recaptchaToken }),
+        body: JSON.stringify({ phone, recaptcha_token: recaptchaToken }),
       });
       const data = await res.json().catch(() => ({}));
       if (!isApiOk(res, data)) {

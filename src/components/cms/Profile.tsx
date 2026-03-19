@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Shield, Zap, User, Mail, Phone, Calendar, Clock, CreditCard } from 'lucide-react';
 
 const Profile: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'info' | 'security'>('info');
@@ -7,6 +7,7 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phoneDraft, setPhoneDraft] = useState('');
+  const [emailDraft, setEmailDraft] = useState('');
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [oldPassword, setOldPassword] = useState('');
@@ -35,6 +36,7 @@ const Profile: React.FC = () => {
           const info = data?.data ?? {};
           setUser(info);
           setPhoneDraft(String(info?.phone || ''));
+          setEmailDraft(String(info?.email || ''));
           try { localStorage.setItem('user_info', JSON.stringify(info)); } catch {}
         } else {
           const raw = localStorage.getItem('user_info');
@@ -42,6 +44,7 @@ const Profile: React.FC = () => {
             const info = JSON.parse(raw);
             setUser(info);
             setPhoneDraft(String(info?.phone || ''));
+            setEmailDraft(String(info?.email || ''));
           }
           setError(data?.message || null);
         }
@@ -51,6 +54,7 @@ const Profile: React.FC = () => {
           const info = JSON.parse(raw);
           setUser(info);
           setPhoneDraft(String(info?.phone || ''));
+          setEmailDraft(String(info?.email || ''));
         }
         setError('Không thể kết nối đến máy chủ');
       } finally {
@@ -79,18 +83,26 @@ const Profile: React.FC = () => {
     return null;
   };
 
-  const handleSavePhone = async () => {
+  const handleSaveProfile = async () => {
     setInfoMsg(null);
     const phone = phoneDraft.trim();
+    const email = emailDraft.trim();
+
     if (phone && !phoneRegex.test(phone)) {
-      setInfoMsg('Số điện thoại không hợp lệ (VD: 0912345678 hoặc +84901234567)');
+      setInfoMsg('Số điện thoại không hợp lệ');
       return;
     }
+    if (email && !/\S+@\S+\.\S+/.test(email)) {
+      setInfoMsg('Email không hợp lệ');
+      return;
+    }
+
     const userId = getUserId();
     if (!userId) {
       setInfoMsg('Không xác định được tài khoản. Vui lòng đăng nhập lại.');
       return;
     }
+
     setPhoneSaving(true);
     try {
       const token = localStorage.getItem('token');
@@ -101,40 +113,25 @@ const Profile: React.FC = () => {
       };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const tryUpdate = async (apiBase: string) => {
-        const endpoint = `${apiBase}/api/v1/users/${userId}`;
-        const resp = await fetch(endpoint, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({ user_id: userId, phone }),
-        });
-        const respData = await resp.json().catch(() => ({}));
-        const ok = resp.ok && (respData?.status === true || respData?.status_code === 0 || respData?.success === true);
-        return { ok, respData };
-      };
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const endpoint = `${apiBase}/api/v1/users/${userId}`;
+      const resp = await fetch(endpoint, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ user_id: userId, phone, email }),
+      });
+      const respData = await resp.json().catch(() => ({}));
+      const ok = resp.ok && (respData?.status === true || respData?.status_code === 0 || respData?.success === true);
 
-      const apiBases = [
-        import.meta.env.VITE_API_BASE_URL,
-        'http://localhost:8000',
-        'http://localhost:3000',
-      ].filter((v, i, arr) => !!v && arr.indexOf(v) === i) as string[];
-
-      let r: { ok: boolean; respData: any } | null = null;
-      for (const base of apiBases) {
-        const rr = await tryUpdate(base);
-        r = rr;
-        if (rr.ok) break;
-      }
-
-      if (!r?.ok) {
-        setInfoMsg(r?.respData?.message || 'Cập nhật số điện thoại không thành công');
+      if (!ok) {
+        setInfoMsg(respData?.message || 'Cập nhật thông tin không thành công');
         return;
       }
 
-      const updatedUser = r.respData?.data?.user ?? r.respData?.data ?? { ...(user || {}), phone };
+      const updatedUser = respData?.data?.user ?? respData?.data ?? { ...(user || {}), phone, email };
       setUser(updatedUser);
       try { localStorage.setItem('user_info', JSON.stringify(updatedUser)); } catch {}
-      setInfoMsg('Cập nhật số điện thoại thành công');
+      setInfoMsg('Cập nhật thông tin thành công');
     } catch {
       setInfoMsg('Không thể kết nối máy chủ');
     } finally {
@@ -184,147 +181,301 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-display font-bold text-slate-900">Trang cá nhân</h2>
+        <div>
+          <h2 className="text-3xl font-display font-bold text-slate-900 mb-1">Cài đặt tài khoản</h2>
+          <p className="text-slate-500 text-sm">Quản lý thông tin cá nhân và bảo mật của bạn</p>
+        </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm">
-        <div className="flex gap-2 p-4 border-b border-slate-100">
+      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden min-h-[600px] flex flex-col md:flex-row">
+        {/* Sidebar Tabs */}
+        <div className="md:w-64 border-r border-slate-100 bg-slate-50/50 p-6 space-y-2">
           <button
-            className={`px-4 py-2 rounded-xl text-sm font-bold cursor-pointer ${activeTab === 'info' ? 'bg-brand text-white' : 'bg-slate-100 text-slate-700'}`}
-            onClick={() => { setActiveTab('info'); setStatusMsg(null); }}
+            onClick={() => setActiveTab('info')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'info' ? 'bg-white text-brand shadow-sm shadow-brand/5 border border-slate-100' : 'text-slate-500 hover:bg-white/50'
+            }`}
           >
+            <User size={18} />
             Thông tin cá nhân
           </button>
           <button
-            className={`px-4 py-2 rounded-xl text-sm font-bold cursor-pointer ${activeTab === 'security' ? 'bg-brand text-white' : 'bg-slate-100 text-slate-700'}`}
-            onClick={() => { setActiveTab('security'); setInfoMsg(null); }}
+            onClick={() => setActiveTab('security')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'security' ? 'bg-white text-brand shadow-sm shadow-brand/5 border border-slate-100' : 'text-slate-500 hover:bg-white/50'
+            }`}
           >
+            <Shield size={18} />
             Bảo mật
           </button>
         </div>
 
-        <div className="p-6">
+        {/* Content Area */}
+        <div className="flex-1 p-8 lg:p-12">
           {activeTab === 'info' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="max-w-3xl space-y-10">
               {loading ? (
-                <div className="col-span-2 text-slate-500">Đang tải...</div>
+                <div className="flex items-center gap-3 text-slate-500 py-10">
+                  <Clock className="animate-spin text-brand" />
+                  Đang tải dữ liệu...
+                </div>
               ) : (
                 <>
-                  <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tên đăng nhập</p>
-                    <p className="text-sm text-slate-900 font-bold">{user?.username || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email</p>
-                    <p className="text-sm text-slate-900 font-bold">{user?.email || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Số điện thoại</p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="tel"
-                        value={phoneDraft}
-                        onChange={(e) => { setPhoneDraft(e.target.value); setInfoMsg(null); }}
-                        className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                        placeholder="VD: 0912345678"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSavePhone}
-                        disabled={phoneSaving || phoneDraft.trim() === String(user?.phone || '').trim()}
-                        className="px-4 py-3 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl transition-all"
-                      >
-                        {phoneSaving ? 'Đang lưu...' : 'Lưu'}
-                      </button>
+                  {/* Basic Info Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div className="group">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                          <User size={14} /> Tên đăng nhập
+                        </label>
+                        <div className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-600 font-medium select-none cursor-not-allowed">
+                          {user?.username || '—'}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1.5 ml-1 italic">Tên đăng nhập không thể thay đổi</p>
+                      </div>
+
+                      <div className="group">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                          <Mail size={14} /> Email liên hệ
+                        </label>
+                        <input
+                          type="email"
+                          value={emailDraft}
+                          onChange={(e) => { setEmailDraft(e.target.value); setInfoMsg(null); }}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium"
+                          placeholder="shop@example.com"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="group">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                          <Phone size={14} /> Số điện thoại
+                        </label>
+                        <input
+                          type="tel"
+                          value={phoneDraft}
+                          onChange={(e) => { setPhoneDraft(e.target.value); setInfoMsg(null); }}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium"
+                          placeholder="0912 xxx xxx"
+                        />
+                      </div>
+
+                      <div className="group">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+                          <Clock size={14} /> Trạng thái tài khoản
+                        </label>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
+                            Number(user?.status) === 2 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-200'
+                          }`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${Number(user?.status) === 2 ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                            {Number(user?.status) === 2 ? 'Hoạt động' : 'Đang khóa'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Trạng thái</p>
-                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${Number(user?.status) === 2 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
-                      {Number(user?.status) === 2 ? 'Hoạt động' : 'Không hoạt động'}
-                    </span>
+
+                  {/* Message and Save Actions */}
+                  <div className="pt-4 space-y-4">
+                    {infoMsg && (
+                      <div className={`p-4 rounded-2xl text-sm font-medium animate-in slide-in-from-top-2 ${
+                        infoMsg.includes('thành công') ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
+                      }`}>
+                        {infoMsg}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSaveProfile}
+                      disabled={phoneSaving || (phoneDraft.trim() === String(user?.phone || '').trim() && emailDraft.trim() === String(user?.email || '').trim())}
+                      className="px-10 py-4 bg-brand hover:bg-brand-dark disabled:bg-slate-200 disabled:text-slate-500 text-white font-bold rounded-2xl transition-all shadow-xl shadow-brand/20 active:scale-95"
+                    >
+                      {phoneSaving ? 'Đang lưu...' : 'Lưu tất cả thay đổi'}
+                    </button>
                   </div>
+
+                  {/* Roles & Permissions section */}
+                  {user?.roles && user.roles.length > 0 && (
+                    <div className="pt-10 border-t border-slate-100">
+                      <div className="flex items-center gap-2 mb-6">
+                        <Shield className="text-brand" size={20} />
+                        <h3 className="text-lg font-bold text-slate-900">Vai trò & Quyền hạn</h3>
+                      </div>
+                      <div className="space-y-6">
+                        {user.roles.map((role: any) => (
+                          <div key={role.id} className="bg-slate-50/50 border border-slate-100 rounded-3xl p-6">
+                            <div className="flex flex-wrap items-center gap-3 mb-4">
+                              <span className="px-4 py-1.5 bg-brand text-white text-[10px] font-black rounded-full uppercase tracking-widest">{role.name}</span>
+                              <span className="text-sm text-slate-500">{role.description}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {role.permissions?.map((p: any) => (
+                                <span key={p.id} className="px-3 py-1 bg-white border border-slate-200 text-slate-500 text-[10px] rounded-lg hover:border-brand/30 hover:text-brand transition-colors cursor-help" title={p.description}>
+                                  {p.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subscriptions section */}
+                  {user?.dashboard?.subscriptions && user.dashboard.subscriptions.length > 0 && (
+                    <div className="pt-10 border-t border-slate-100">
+                      <div className="flex items-center gap-2 mb-6">
+                        <Zap className="text-amber-500" size={20} />
+                        <h3 className="text-lg font-bold text-slate-900">Gói dịch vụ đang dùng</h3>
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {user.dashboard.subscriptions.map((sub: any, idx: number) => (
+                          <div key={idx} className="relative group overflow-hidden bg-white border border-slate-200 rounded-[2rem] p-6 transition-all hover:shadow-xl hover:shadow-slate-200/50 hover:border-brand/20">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-brand/5 rounded-full -mr-16 -mt-16 group-hover:bg-brand/10 transition-colors" />
+                            
+                            <div className="flex justify-between items-start mb-6 relative z-10">
+                              <div>
+                                <h4 className="text-xl font-black text-slate-900">{sub.plan_name}</h4>
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
+                                  <Clock size={10} /> ID: #{sub.subscription_id}
+                                </div>
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                sub.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'
+                              }`}>
+                                {sub.status}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-6 relative z-10">
+                              <div className="p-3 bg-slate-50 rounded-2xl">
+                                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Cửa hàng</p>
+                                <p className="text-lg font-bold text-slate-900">{sub.max_stores}</p>
+                              </div>
+                              <div className="p-3 bg-slate-50 rounded-2xl">
+                                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Lưu trữ</p>
+                                <p className="text-lg font-bold text-slate-900">{sub.max_storage_gb} GB</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs pt-4 border-t border-slate-50">
+                              <span className="text-slate-400 font-medium">Hết hạn vào:</span>
+                              <span className="flex items-center gap-1.5 text-slate-900 font-bold bg-slate-50 px-3 py-1 rounded-full">
+                                <Calendar size={12} className="text-brand" />
+                                {new Date(sub.expires_at).toLocaleDateString('vi-VN', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
-              {infoMsg && (
-                <div className={`col-span-2 text-sm ${infoMsg.includes('thành công') ? 'text-emerald-600' : 'text-rose-600'}`}>{infoMsg}</div>
+              {error && (
+                <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-sm font-medium">
+                  {error}
+                </div>
               )}
-              {error && <div className="col-span-2 text-rose-600 text-sm">{error}</div>}
             </div>
           ) : (
-            <div className="max-w-md space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mật khẩu hiện tại</label>
-                <div className="relative">
-                  <input
-                    type={showOld ? 'text' : 'password'}
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    className="w-full px-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowOld(v => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
-                    aria-label="toggle-old-password"
-                  >
-                    {showOld ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+            <div className="max-w-md space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="space-y-6">
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Mật khẩu hiện tại</label>
+                  <div className="relative group">
+                    <input
+                      type={showOld ? 'text' : 'password'}
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      className="w-full px-4 pr-12 py-3.5 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900"
+                      placeholder="Nhập mật khẩu cũ"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOld(v => !v)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-brand transition-colors"
+                    >
+                      {showOld ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Mật khẩu mới</label>
+                  <div className="relative group">
+                    <input
+                      type={showNew ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-4 pr-12 py-3.5 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900"
+                      placeholder="Mật khẩu tối thiểu 6 ký tự"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNew(v => !v)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-brand transition-colors"
+                    >
+                      {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Xác nhận mật khẩu mới</label>
+                  <div className="relative group">
+                    <input
+                      type={showConfirmVis ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full px-4 pr-12 py-3.5 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900"
+                      placeholder="Nhập lại mật khẩu mới"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmVis(v => !v)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-brand transition-colors"
+                    >
+                      {showConfirmVis ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mật khẩu mới</label>
-                <div className="relative">
-                  <input
-                    type={showNew ? 'text' : 'password'}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNew(v => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
-                    aria-label="toggle-new-password"
-                  >
-                    {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Xác nhận mật khẩu</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmVis ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmVis(v => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
-                    aria-label="toggle-confirm-password"
-                  >
-                    {showConfirmVis ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
+
               {statusMsg && (
-                <div className={`text-sm ${statusMsg.includes('thành công') ? 'text-emerald-600' : 'text-rose-600'}`}>{statusMsg}</div>
+                <div className={`p-4 rounded-2xl text-sm font-medium animate-in slide-in-from-top-2 ${
+                  statusMsg.includes('thành công') ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
+                }`}>
+                  {statusMsg}
+                </div>
               )}
-              <div className="pt-2">
-                <button
-                  onClick={handleChangePassword}
-                  className="px-6 py-3 bg-brand hover:bg-brand-dark text-white font-bold rounded-xl"
-                >
-                  Đổi mật khẩu
-                </button>
+              
+              <button
+                onClick={handleChangePassword}
+                className="w-full py-4 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-xl shadow-slate-200 transition-all active:scale-[0.98]"
+              >
+                Cập nhật mật khẩu
+              </button>
+
+              <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100">
+                <div className="flex items-start gap-3">
+                  <Clock className="text-amber-600 mt-1" size={18} />
+                  <div>
+                    <h5 className="text-sm font-bold text-amber-900">Lưu ý bảo mật</h5>
+                    <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                      Sử dụng mật khẩu mạnh bao gồm chữ cái, số và ký hiệu đặc biệt. Đừng bao giờ chia sẻ mật khẩu của bạn với bất kỳ ai.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

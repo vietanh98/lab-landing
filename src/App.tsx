@@ -2,19 +2,19 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
-import { 
-  Box, 
-  Video, 
-  ShieldCheck, 
-  History, 
-  ChevronRight, 
-  Menu, 
-  X, 
-  Star, 
-  Mail, 
+import {
+  Box,
+  Video,
+  ShieldCheck,
+  History,
+  ChevronRight,
+  Menu,
+  X,
+  Star,
+  Mail,
   Headset,
   Info,
-  Globe, 
+  Globe,
   Facebook,
   LogIn,
   UserPlus,
@@ -115,13 +115,13 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         if (infoCandidate && typeof infoCandidate === 'object') {
           try {
             localStorage.setItem('user_info', JSON.stringify(infoCandidate));
-          } catch {}
+          } catch { }
         }
         const dash = data?.data?.dashboard;
         if (dash && typeof dash === 'object') {
           setDashboardMetrics(dash);
         }
-      } catch {}
+      } catch { }
     };
     if (meLoadedRef.current) return;
     meLoadedRef.current = true;
@@ -169,7 +169,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           };
         });
         setVideos(mapped);
-      } catch {}
+      } catch { }
     };
     if (videosLoadedRef.current) return;
     videosLoadedRef.current = true;
@@ -197,7 +197,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           ? listCandidate
           : (Array.isArray(listCandidate?.data) ? listCandidate.data : []);
         setStores(items);
-      } catch {}
+      } catch { }
     };
     if (storesLoadedRef.current) return;
     storesLoadedRef.current = true;
@@ -224,10 +224,10 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         const rawList = Array.isArray(data?.data?.items)
           ? data.data.items
           : Array.isArray(data?.data)
-          ? data.data
-          : Array.isArray(data?.users)
-          ? data.users
-          : [];
+            ? data.data
+            : Array.isArray(data?.users)
+              ? data.users
+              : [];
         if (!Array.isArray(rawList)) return;
         const mapped = rawList.map((u: any) => ({
           ...u,
@@ -235,8 +235,8 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
             (u.id !== undefined && u.id !== null
               ? String(u.id)
               : u.user_id !== undefined && u.user_id !== null
-              ? String(u.user_id)
-              : u.username || u.email || '') || '',
+                ? String(u.user_id)
+                : u.username || u.email || '') || '',
           name: u.full_name || u.name || u.username || u.email || 'Không rõ tên',
           role: u.role || u.role_name || 'Nhân viên',
           store: u.store || u.store_id || 'CN1',
@@ -373,7 +373,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
       try {
         const info = JSON.parse(stored);
         user_id = info.id || info.user_id || info.sub || info.userId || '';
-      } catch {}
+      } catch { }
     }
     if (!user_id) {
       const token = localStorage.getItem('token');
@@ -381,7 +381,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
           user_id = payload.sub || payload.user_id || payload.id || '';
-        } catch {}
+        } catch { }
       }
     }
 
@@ -519,7 +519,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         try {
           const info = JSON.parse(storedUser);
           owner = info.id || info.user_id || info.sub || info.userId || '';
-        } catch {}
+        } catch { }
       }
       if (!owner) {
         const tokenRaw = localStorage.getItem('token');
@@ -527,7 +527,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           try {
             const payload = JSON.parse(atob(tokenRaw.split('.')[1]));
             owner = payload.sub || payload.user_id || payload.id || '';
-          } catch {}
+          } catch { }
         }
       }
       const numericOwner = owner ? Number(owner) : NaN;
@@ -626,19 +626,19 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     <>
       <Routes>
         <Route element={
-          <CMSLayout 
-            onLogout={onLogout} 
-            activeTab="" 
+          <CMSLayout
+            onLogout={onLogout}
+            activeTab=""
             showUpgrade={showUpgrade}
             onAddStore={() => setStoreModal({ isOpen: true, store: null })}
             onAddStaff={() => setStaffModal({ isOpen: true, member: null })}
           />
         }>
           <Route index element={
-            <Dashboard 
-              videos={videos} 
-              stores={stores} 
-              staff={staff} 
+            <Dashboard
+              videos={videos}
+              stores={stores}
+              staff={staff}
               metrics={dashboardMetrics}
               onViewVideo={(vid) => setVideoModal({ isOpen: true, video: vid })}
               onDeleteVideo={handleDeleteVideo}
@@ -649,15 +649,15 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
             />
           } />
           <Route path="videos" element={
-            <VideoManagement 
-              videos={videos} 
+            <VideoManagement
+              videos={videos}
               onViewVideo={(vid) => setVideoModal({ isOpen: true, video: vid })}
               onDeleteVideo={handleDeleteVideo}
             />
           } />
           <Route path="stores" element={
-            <StoreManagement 
-              stores={stores} 
+            <StoreManagement
+              stores={stores}
               refreshKey={storeRefresh}
               onEditStore={(s) => setStoreModal({ isOpen: true, store: s })}
               onDeleteStore={handleDeleteStore}
@@ -666,14 +666,14 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
             />
           } />
           <Route path="staff" element={
-            <StaffManagement 
-              staff={staff} 
+            <StaffManagement
+              staff={staff}
               onEditStaff={(m) => setStaffModal({ isOpen: true, member: m })}
               onDeleteStaff={handleDeleteStaff}
             />
           } />
           <Route path="subscription" element={
-            <SubscriptionManagement 
+            <SubscriptionManagement
               showUpgrade={showUpgrade}
               setShowUpgrade={setShowUpgrade}
               pricingPlans={pricingPlans}
@@ -692,7 +692,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
       <AnimatePresence>
         {showQR.isOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -702,13 +702,13 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               }}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className="relative w-full max-w-md bg-white rounded-[2.5rem] p-10 text-center shadow-2xl"
             >
-              <button 
+              <button
                 onClick={() => {
                   setShowQR({ isOpen: false, plan: null });
                   navigate('/cms/subscription');
@@ -726,9 +726,9 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                   <h3 className="text-2xl font-display font-bold text-slate-900 mb-2">Quét mã thanh toán</h3>
                   <p className="text-slate-500 mb-8">Nâng cấp gói <span className="text-brand font-bold">{showQR.plan}</span></p>
                   <div className="bg-slate-50 p-6 rounded-3xl border-2 border-dashed border-slate-200 mb-8">
-                    <img 
-                      src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=LabBox-Payment-Demo" 
-                      alt="QR Code Payment" 
+                    <img
+                      src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=LabBox-Payment-Demo"
+                      alt="QR Code Payment"
                       className="w-48 h-48 mx-auto mix-blend-multiply"
                       referrerPolicy="no-referrer"
                     />
@@ -749,14 +749,14 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
       <AnimatePresence>
         {videoModal.isOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setVideoModal({ isOpen: false, video: null })}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
@@ -767,10 +767,10 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                 <button onClick={() => setVideoModal({ isOpen: false, video: null })} className="p-2 text-slate-400 hover:text-slate-600"><X size={20} /></button>
               </div>
               <div className="aspect-video bg-black">
-                <video 
-                  src={videoModal.video?.url} 
-                  controls 
-                  autoPlay 
+                <video
+                  src={videoModal.video?.url}
+                  controls
+                  autoPlay
                   className="w-full h-full"
                 />
               </div>
@@ -808,14 +808,14 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
       <AnimatePresence>
         {storeModal.isOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setStoreModal({ isOpen: false, store: null })}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
@@ -827,7 +827,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               <form onSubmit={handleSaveStore} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tên cửa hàng</label>
-                  <input 
+                  <input
                     name="name"
                     defaultValue={storeModal.store?.name}
                     required
@@ -849,7 +849,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                   {storeModal.store ? (
                     (() => {
                       const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-                      const base = apiBase.replace(/\/+$/,'');
+                      const base = apiBase.replace(/\/+$/, '');
                       const candidate = Array.isArray(storeModal.store?.images) && storeModal.store?.images.length
                         ? storeModal.store.images[0]
                         : storeModal.store?.logo;
@@ -884,14 +884,14 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setStoreModal({ isOpen: false, store: null })}
                     className="flex-1 py-3 font-bold text-slate-500 bg-slate-100 rounded-xl"
                   >
                     Hủy
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     className="flex-1 py-3 font-bold text-white bg-brand rounded-xl shadow-lg shadow-brand/20"
                   >
@@ -908,14 +908,14 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
       <AnimatePresence>
         {staffModal.isOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setStaffModal({ isOpen: false, member: null })}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
@@ -939,7 +939,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                 )}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Họ và tên</label>
-                  <input 
+                  <input
                     name="full_name"
                     defaultValue={staffModal.member?.full_name || staffModal.member?.name}
                     required
@@ -949,7 +949,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email</label>
-                  <input 
+                  <input
                     name="email"
                     type="email"
                     defaultValue={staffModal.member?.email}
@@ -960,7 +960,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Số điện thoại</label>
-                  <input 
+                  <input
                     name="phone"
                     type="tel"
                     defaultValue={staffModal.member?.phone || ''}
@@ -970,7 +970,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Trạng thái</label>
-                  <select 
+                  <select
                     name="status"
                     defaultValue={
                       staffModal.member
@@ -1008,14 +1008,14 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                   </>
                 )}
                 <div className="flex gap-3 pt-4">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setStaffModal({ isOpen: false, member: null })}
                     className="flex-1 py-3 font-bold text-slate-500 bg-slate-100 rounded-xl"
                   >
                     Hủy
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     className="flex-1 py-3 font-bold text-white bg-brand rounded-xl shadow-lg shadow-brand/20"
                   >
@@ -1133,11 +1133,10 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className={`px-5 py-3.5 rounded-xl shadow-lg font-medium text-sm flex items-center gap-3 ${
-                toast.type === 'success'
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                  : 'bg-rose-50 text-rose-800 border border-rose-200'
-              }`}
+              className={`px-5 py-3.5 rounded-xl shadow-lg font-medium text-sm flex items-center gap-3 ${toast.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                : 'bg-rose-50 text-rose-800 border border-rose-200'
+                }`}
             >
               {toast.type === 'success' ? (
                 <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
@@ -1176,13 +1175,13 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
             <a href="#about" className="text-sm font-medium text-slate-600 hover:text-brand transition-colors">Về chúng tôi</a>
             <a href="#contact" className="text-sm font-medium text-slate-600 hover:text-brand transition-colors">Liên hệ</a>
             <div className="h-4 w-[1px] bg-slate-200" />
-            <button 
+            <button
               onClick={() => onAuthClick('login')}
               className="text-sm font-semibold text-slate-900 hover:text-brand transition-colors"
             >
               Đăng nhập
             </button>
-            <button 
+            <button
               onClick={() => onAuthClick('register')}
               className="bg-brand hover:bg-brand-dark text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
             >
@@ -1202,7 +1201,7 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
       {/* Mobile Nav */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -1214,13 +1213,13 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
               <a href="#about" className="block text-lg font-medium text-slate-900">Về chúng tôi</a>
               <a href="#contact" className="block text-lg font-medium text-slate-900">Liên hệ</a>
               <div className="pt-4 space-y-3">
-                <button 
+                <button
                   onClick={() => { onAuthClick('login'); setIsOpen(false); }}
                   className="w-full py-3 text-center font-bold text-slate-900 border border-slate-200 rounded-xl"
                 >
                   Đăng nhập
                 </button>
-                <button 
+                <button
                   onClick={() => { onAuthClick('register'); setIsOpen(false); }}
                   className="w-full py-3 text-center font-bold text-white bg-brand rounded-xl"
                 >
@@ -1237,7 +1236,7 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
 
 const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean, mode: 'login' | 'register', onClose: () => void, onLoginSuccess: () => void }) => {
   type AuthMode = 'login' | 'register' | 'forgot';
-  type RegisterStep = 1 | 2 | 3 | 4;
+  type RegisterStep = 1 | 2 | 3;
 
   const [currentMode, setCurrentMode] = useState<AuthMode>(mode);
   const [registerStep, setRegisterStep] = useState<RegisterStep>(1);
@@ -1248,10 +1247,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     otp: '',
     password: '',
     confirm_password: '',
-    full_name: '',
-    email: '',
-    birth_date: '',
-    gender: '' as '' | 0 | 1 | 2,
+    verify_token: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -1355,16 +1351,6 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     return Object.keys(next).length === 0;
   };
 
-  const validateRegisterStep4 = () => {
-    const next: Record<string, string> = {};
-    if (!registerData.full_name) next.full_name = 'Vui lòng nhập họ và tên';
-    if (!registerData.email || !/\S+@\S+\.\S+/.test(registerData.email)) next.email = 'Email không hợp lệ';
-    if (!registerData.birth_date) next.birth_date = 'Vui lòng chọn ngày sinh';
-    if (registerData.gender === '') next.gender = 'Vui lòng chọn giới tính';
-    setErrors(next);
-    return Object.keys(next).length === 0;
-  };
-
   const sendOtp = async () => {
     setStatusMsg(null);
     if (!validateRegisterStep1()) return;
@@ -1383,7 +1369,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
         }
         grecaptcha.ready(() => {
           grecaptcha.execute('6LdVy48sAAAAAARFNw8u9EELmrV_liJTcD-Cr-uY', { action: 'send_otp' })
-            .then((token: string) => resolve(token))
+            .then((recaptcha_token: string) => resolve(recaptcha_token))
             .catch(reject);
         });
       });
@@ -1396,7 +1382,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
           Accept: 'application/json, text/plain, */*',
           'X-Timestamp': Date.now().toString(),
         },
-        body: JSON.stringify({ phone, token: recaptchaToken }),
+        body: JSON.stringify({ phone, recaptcha_token: recaptchaToken }),
       });
       const data = await res.json().catch(() => ({}));
       const ok = isApiOk(res, data);
@@ -1440,6 +1426,8 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
         setErrors({ otp: data?.message || 'Mã OTP không đúng' });
         return;
       }
+      const verifyToken = data?.data?.verify_token || data?.verify_token || '';
+      setRegisterData(prev => ({ ...prev, verify_token: verifyToken }));
       setStatusMsg({ type: 'success', text: 'Xác nhận mã OTP thành công.' });
       setIsOtpVerified(true);
       setRegisterStep(3);
@@ -1450,24 +1438,13 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     }
   };
 
-  const verifyPasswordStep = () => {
-    setStatusMsg(null);
-    if (!isOtpVerified) {
-      setRegisterStep(2);
-      setErrors({ otp: 'Vui lòng xác nhận OTP trước' });
-      return;
-    }
-    if (!validateRegisterStep3()) return;
-    setRegisterStep(4);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMsg(null);
 
     if (currentMode === 'register') {
-      if (registerStep !== 4) return;
-      if (!validateRegisterStep4()) return;
+      if (registerStep !== 3) return;
+      if (!validateRegisterStep3()) return;
     } else if (currentMode === 'login') {
       if (!validateLogin()) return;
     } else {
@@ -1482,8 +1459,8 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
         currentMode === 'login'
           ? `${apiBase}/api/v1/auth/login`
           : currentMode === 'register'
-          ? `${apiBase}/api/v1/auth/register`
-          : `${apiBase}/api/v1/auth/forgot`;
+            ? `${apiBase}/api/v1/auth/register-by-phone`
+            : `${apiBase}/api/v1/auth/forgot`;
 
       const phone = normalizePhone(registerData.phone);
 
@@ -1491,17 +1468,12 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
         currentMode === 'login'
           ? { username: loginData.username, password: loginData.password }
           : currentMode === 'register'
-          ? {
-              username: phone,
+            ? {
               phone,
               password: registerData.password,
-              confirm_password: registerData.confirm_password,
-              full_name: registerData.full_name,
-              email: registerData.email,
-              birth_date: registerData.birth_date,
-              gender: registerData.gender,
+              verify_token: registerData.verify_token,
             }
-          : { email: forgotData.email, username: forgotData.username };
+            : { email: forgotData.email, username: forgotData.username };
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -1531,9 +1503,15 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
             onClose();
           }, 1000);
         } else if (currentMode === 'register') {
-          setStatusMsg({ type: 'success', text: 'Đăng ký thành công!' });
-          setLoginData(prev => ({ ...prev, username: phone }));
-          setTimeout(() => setCurrentMode('login'), 1200);
+          setStatusMsg({ type: 'success', text: 'Đăng ký thành công! Đang vào hệ thống...' });
+          const token = data?.data?.access_token || data?.access_token || data?.token;
+          if (token) localStorage.setItem('token', token);
+          localStorage.setItem('user_info', JSON.stringify(data.data || data || {}));
+          localStorage.setItem('isLoggedIn', 'true');
+          setTimeout(() => {
+            onLoginSuccess();
+            onClose();
+          }, 1000);
         } else {
           setStatusMsg({
             type: 'success',
@@ -1550,8 +1528,8 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
             (currentMode === 'login'
               ? 'Đăng nhập thất bại'
               : currentMode === 'register'
-              ? 'Đăng ký thất bại'
-              : 'Gửi yêu cầu thất bại')
+                ? 'Đăng ký thất bại'
+                : 'Gửi yêu cầu thất bại')
         });
       }
     } catch (error) {
@@ -1564,14 +1542,14 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
       />
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className={`relative w-full ${currentMode === 'register' ? 'max-w-xl' : 'max-w-md'} bg-white rounded-3xl shadow-2xl p-8 transition-all duration-300`}
@@ -1588,15 +1566,14 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
             {currentMode === 'login'
               ? 'Đăng nhập để quản lý đơn hàng của bạn'
               : currentMode === 'register'
-              ? 'Hoàn tất đăng ký theo 4 bước'
-              : 'Nhập email hoặc tên đăng nhập để nhận liên kết đặt lại mật khẩu'}
+                ? 'Hoàn tất đăng ký theo 3 bước'
+                : 'Nhập email hoặc tên đăng nhập để nhận liên kết đặt lại mật khẩu'}
           </p>
         </div>
 
         {statusMsg && (
-          <div className={`mb-6 p-4 rounded-xl text-sm font-medium ${
-            statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
-          }`}>
+          <div className={`mb-6 p-4 rounded-xl text-sm font-medium ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
+            }`}>
             {statusMsg.text}
           </div>
         )}
@@ -1604,14 +1581,13 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
         <form className="space-y-4" onSubmit={handleSubmit}>
           {currentMode === 'register' && (
             <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-              {[1, 2, 3, 4].map((s) => (
-                <div key={s} className={`flex items-center gap-2 ${s === 4 ? '' : 'flex-1'}`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center border ${
-                    registerStep >= (s as RegisterStep) ? 'bg-brand border-brand text-white' : 'bg-white border-slate-200 text-slate-400'
-                  }`}>
+              {[1, 2, 3].map((s) => (
+                <div key={s} className={`flex items-center gap-2 ${s === 3 ? '' : 'flex-1'}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center border ${registerStep >= (s as RegisterStep) ? 'bg-brand border-brand text-white' : 'bg-white border-slate-200 text-slate-400'
+                    }`}>
                     {s}
                   </div>
-                  {s !== 4 && <div className={`h-px flex-1 ${registerStep > (s as RegisterStep) ? 'bg-brand' : 'bg-slate-200'}`} />}
+                  {s !== 3 && <div className={`h-px flex-1 ${registerStep > (s as RegisterStep) ? 'bg-brand' : 'bg-slate-200'}`} />}
                 </div>
               ))}
             </div>
@@ -1804,101 +1780,11 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                 </>
               )}
 
-              {registerStep === 4 && (
-                <>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Họ và Tên</label>
-                    <input
-                      value={registerData.full_name}
-                      onChange={(e) => {
-                        setRegisterData(prev => ({ ...prev, full_name: e.target.value }));
-                        clearFieldError('full_name');
-                      }}
-                      type="text"
-                      className={`w-full px-4 py-2.5 rounded-xl border ${errors.full_name ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
-                      placeholder="Nguyễn Văn A"
-                    />
-                    {errors.full_name && <p className="text-red-500 text-[10px] mt-1">{errors.full_name}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
-                    <input
-                      value={registerData.email}
-                      onChange={(e) => {
-                        setRegisterData(prev => ({ ...prev, email: e.target.value }));
-                        clearFieldError('email');
-                      }}
-                      type="email"
-                      className={`w-full px-4 py-2.5 rounded-xl border ${errors.email ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
-                      placeholder="name@company.com"
-                    />
-                    {errors.email && <p className="text-red-500 text-[10px] mt-1">{errors.email}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Ngày sinh</label>
-                    <input
-                      value={registerData.birth_date}
-                      onChange={(e) => {
-                        setRegisterData(prev => ({ ...prev, birth_date: e.target.value }));
-                        clearFieldError('birth_date');
-                      }}
-                      type="date"
-                      className={`w-full px-4 py-2.5 rounded-xl border ${errors.birth_date ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
-                    />
-                    {errors.birth_date && <p className="text-red-500 text-[10px] mt-1">{errors.birth_date}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Giới tính</label>
-                    <div className={`grid grid-cols-3 gap-3 ${errors.gender ? 'rounded-2xl p-2 border border-red-200 bg-red-50/30' : ''}`}>
-                      {([
-                        { value: 1, label: 'Nam' },
-                        { value: 2, label: 'Nữ' },
-                        { value: 0, label: 'Khác' },
-                      ] as const).map((opt) => (
-                        (() => {
-                          const selected = registerData.gender === opt.value;
-                          return (
-                        <label
-                          key={opt.value}
-                          className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none transition-all focus-within:ring-2 focus-within:ring-brand/20 ${
-                            selected
-                              ? 'border-brand bg-brand text-white shadow-lg shadow-brand/20'
-                              : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="gender"
-                            checked={registerData.gender === opt.value}
-                            onChange={(e) => {
-                              if (!e.target.checked) return;
-                              setRegisterData(prev => ({ ...prev, gender: opt.value }));
-                              clearFieldError('gender');
-                            }}
-                            className="sr-only"
-                          />
-                          <span
-                            className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${
-                              selected ? 'border-white/80' : 'border-slate-400'
-                            }`}
-                            aria-hidden="true"
-                          >
-                            <span className={`h-2 w-2 rounded-full ${selected ? 'bg-white' : 'bg-transparent'}`} />
-                          </span>
-                          <span className={`text-sm font-semibold ${selected ? 'text-white' : 'text-slate-700'}`}>{opt.label}</span>
-                        </label>
-                          );
-                        })()
-                      ))}
-                    </div>
-                    {errors.gender && <p className="text-red-500 text-[10px] mt-1">{errors.gender}</p>}
-                  </div>
-                </>
-              )}
+
             </div>
           )}
 
-          {currentMode === 'register' && registerStep > 1 && (
+          {currentMode === 'register' && registerStep > 1 && registerStep < 3 && (
             <button
               type="button"
               onClick={() => {
@@ -1939,19 +1825,6 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                   'Xác nhận mã'
                 )}
               </button>
-            ) : registerStep === 3 ? (
-              <button
-                type="button"
-                onClick={verifyPasswordStep}
-                disabled={isLoading}
-                className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  'Xác minh'
-                )}
-              </button>
             ) : (
               <button
                 disabled={isLoading}
@@ -1981,7 +1854,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
         <div className="mt-8 pt-6 border-t border-slate-100 text-center">
           <p className="text-sm text-slate-500">
             {currentMode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
-            <button 
+            <button
               onClick={() => {
                 const nextMode: AuthMode = currentMode === 'login' ? 'register' : 'login';
                 setCurrentMode(nextMode);
@@ -2004,8 +1877,8 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
 };
 
 const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuccess }: any) => {
-  const slides = (import.meta.env.VITE_HERO_SLIDES 
-    ? String(import.meta.env.VITE_HERO_SLIDES).split(',').map(s => s.trim()).filter(Boolean) 
+  const slides = (import.meta.env.VITE_HERO_SLIDES
+    ? String(import.meta.env.VITE_HERO_SLIDES).split(',').map(s => s.trim()).filter(Boolean)
     : [import.meta.env.VITE_HERO_IMAGE_URL || "/hero-demo.png"]
   ) as string[];
   const [slideIndex, setSlideIndex] = React.useState(0);
@@ -2060,11 +1933,11 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
   return (
     <div className="min-h-screen font-sans">
       <Navbar onAuthClick={openAuth} />
-      
-      <AuthModal 
-        isOpen={authModal.isOpen} 
-        mode={authModal.mode} 
-        onClose={closeAuth} 
+
+      <AuthModal
+        isOpen={authModal.isOpen}
+        mode={authModal.mode}
+        onClose={closeAuth}
         onLoginSuccess={onLoginSuccess || (() => setIsLoggedIn(true))}
       />
 
@@ -2093,17 +1966,17 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
               LabBox cung cấp giải pháp lưu trữ bằng chứng đóng gói thông minh, giúp Sốp xóa tan nỗi lo bị 'tráo hàng' hay khiếu nại ảo từ khách hàng.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button 
+              <button
                 onClick={() => openAuth('register')}
                 className="w-full sm:w-auto px-8 py-4 bg-brand hover:bg-brand-dark text-white font-bold rounded-2xl shadow-xl shadow-brand/20 transition-all flex items-center justify-center gap-2 group"
               >
                 Bắt đầu ngay miễn phí
                 <ChevronRight className="group-hover:translate-x-1 transition-transform" />
               </button>
-              <a 
-                href="https://vt.tiktok.com/ZSuRUChBE/" 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href="https://vt.tiktok.com/ZSuRUChBE/"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full sm:w-auto px-8 py-4 bg-white border border-slate-200 text-slate-900 font-bold rounded-2xl hover:bg-slate-50 transition-all text-center"
               >
                 Xem demo sản phẩm
@@ -2111,7 +1984,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
             </div>
 
             {/* App Preview Placeholder */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.8 }}
@@ -2169,7 +2042,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/10 to-transparent pointer-events-none" />
                 </div>
               </div>
-              
+
               {/* Floating Elements */}
               <div className="absolute -top-6 -right-6 bg-white p-4 rounded-2xl shadow-xl border border-slate-100 hidden lg:block">
                 <div className="flex items-center gap-3">
@@ -2218,7 +2091,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                 desc: "Tuỳ chỉnh phân quyền cho nhân viên, tránh tiết lộ video sản phẩm và nhiều tính năng bảo mật cho Shop."
               }
             ].map((feature, i) => (
-              <motion.div 
+              <motion.div
                 key={i}
                 whileHover={{ y: -10 }}
                 className="p-8 rounded-3xl bg-slate-50 border border-slate-100 hover:shadow-xl hover:shadow-brand/5 transition-all"
@@ -2243,52 +2116,51 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
           <div className="grid md:grid-cols-3 gap-8">
             {(pricingPlans.length
               ? pricingPlans.map((p, idx) => ({
-                  name: p.name,
-                  price: typeof p.price === 'number' && p.price > 0 ? `${(p.price * 1000).toLocaleString('vi-VN')}đ` : 'Miễn phí',
-                  period: "mỗi tháng",
-                  desc: "Gói dịch vụ LabBox",
-                  features: ["Quản lý video", "Tìm kiếm thông minh", "Hỗ trợ kỹ thuật"],
-                  button: "Đăng ký",
-                  highlight: idx === 1
-                }))
+                name: p.name,
+                price: typeof p.price === 'number' && p.price > 0 ? `${(p.price * 1000).toLocaleString('vi-VN')}đ` : 'Miễn phí',
+                period: "mỗi tháng",
+                desc: "Gói dịch vụ LabBox",
+                features: ["Quản lý video", "Tìm kiếm thông minh", "Hỗ trợ kỹ thuật"],
+                button: "Đăng ký",
+                highlight: idx === 1
+              }))
               : [
-                  {
-                    name: "Cơ bản",
-                    price: "Miễn phí",
-                    period: "Mãi mãi",
-                    desc: "Dành cho các shop mới bắt đầu kinh doanh.",
-                    features: ["Lưu trữ 50 video/tháng", "Chất lượng HD 720p", "Tìm kiếm theo mã đơn", "Hỗ trợ qua email"],
-                    button: "Bắt đầu ngay",
-                    highlight: false
-                  },
-                  {
-                    name: "Chuyên nghiệp",
-                    price: "199.000đ",
-                    period: "mỗi tháng",
-                    desc: "Dành cho các shop có lượng đơn ổn định.",
-                    features: ["Lưu trữ 500 video/tháng", "Chất lượng Full HD 1080p", "Truy xuất nhanh 24/7", "Hỗ trợ ưu tiên 24/7", "Báo cáo thống kê"],
-                    button: "Dùng thử 7 ngày",
-                    highlight: true
-                  },
-                  {
-                    name: "Doanh nghiệp",
-                    price: "499.000đ",
-                    period: "mỗi tháng",
-                    desc: "Giải pháp tối ưu cho kho hàng lớn.",
-                    features: ["Không giới hạn video", "Chất lượng 4K Ultra HD", "API tích hợp hệ thống", "Quản lý nhiều kho hàng", "Account Manager riêng"],
-                    button: "Liên hệ tư vấn",
-                    highlight: false
-                  }
-                ]
+                {
+                  name: "Cơ bản",
+                  price: "Miễn phí",
+                  period: "Mãi mãi",
+                  desc: "Dành cho các shop mới bắt đầu kinh doanh.",
+                  features: ["Lưu trữ 50 video/tháng", "Chất lượng HD 720p", "Tìm kiếm theo mã đơn", "Hỗ trợ qua email"],
+                  button: "Bắt đầu ngay",
+                  highlight: false
+                },
+                {
+                  name: "Chuyên nghiệp",
+                  price: "199.000đ",
+                  period: "mỗi tháng",
+                  desc: "Dành cho các shop có lượng đơn ổn định.",
+                  features: ["Lưu trữ 500 video/tháng", "Chất lượng Full HD 1080p", "Truy xuất nhanh 24/7", "Hỗ trợ ưu tiên 24/7", "Báo cáo thống kê"],
+                  button: "Dùng thử 7 ngày",
+                  highlight: true
+                },
+                {
+                  name: "Doanh nghiệp",
+                  price: "499.000đ",
+                  period: "mỗi tháng",
+                  desc: "Giải pháp tối ưu cho kho hàng lớn.",
+                  features: ["Không giới hạn video", "Chất lượng 4K Ultra HD", "API tích hợp hệ thống", "Quản lý nhiều kho hàng", "Account Manager riêng"],
+                  button: "Liên hệ tư vấn",
+                  highlight: false
+                }
+              ]
             ).map((plan, i) => (
-              <motion.div 
+              <motion.div
                 key={i}
                 whileHover={{ y: -10 }}
-                className={`p-8 rounded-[2.5rem] border transition-all relative ${
-                  plan.highlight 
-                    ? 'bg-white border-brand shadow-2xl shadow-brand/10 z-10' 
-                    : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
-                }`}
+                className={`p-8 rounded-[2.5rem] border transition-all relative ${plan.highlight
+                  ? 'bg-white border-brand shadow-2xl shadow-brand/10 z-10'
+                  : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
+                  }`}
               >
                 {plan.highlight && (
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
@@ -2303,7 +2175,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                   </div>
                   <p className="text-slate-600 text-sm leading-relaxed">{plan.desc}</p>
                 </div>
-                
+
                 <ul className="space-y-4 mb-10">
                   {plan.features.map((feature, idx) => (
                     <li key={idx} className="flex items-center gap-3 text-sm text-slate-600">
@@ -2313,13 +2185,12 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                   ))}
                 </ul>
 
-                <button 
+                <button
                   onClick={() => openAuth('register')}
-                  className={`w-full py-4 rounded-2xl font-bold transition-all ${
-                    plan.highlight 
-                      ? 'bg-brand hover:bg-brand-dark text-white shadow-lg shadow-brand/20' 
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
-                  }`}
+                  className={`w-full py-4 rounded-2xl font-bold transition-all ${plan.highlight
+                    ? 'bg-brand hover:bg-brand-dark text-white shadow-lg shadow-brand/20'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
+                    }`}
                 >
                   {plan.button}
                 </button>
@@ -2335,9 +2206,9 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div className="relative">
               <div className="absolute -top-10 -left-10 w-40 h-40 bg-brand/10 rounded-full blur-2xl" />
-              <img 
-                src="https://picsum.photos/seed/labbox-team/800/1000" 
-                alt="LabBox Team" 
+              <img
+                src="https://picsum.photos/seed/labbox-team/800/1000"
+                alt="LabBox Team"
                 className="rounded-[2.5rem] shadow-2xl relative z-10"
                 referrerPolicy="no-referrer"
               />
@@ -2370,7 +2241,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
           <div className="bg-slate-900 rounded-[3rem] p-12 lg:p-20 text-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-brand/20 rounded-full blur-3xl -mr-32 -mt-32" />
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -ml-32 -mb-32" />
-            
+
             <h2 className="text-4xl lg:text-6xl font-display font-bold text-white mb-8 relative z-10">
               Sẵn sàng bảo vệ <br /> doanh nghiệp của bạn?
             </h2>
@@ -2378,7 +2249,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
               Tham gia cùng hàng nghìn chủ shop đã tin dùng LabBox để tối ưu quy trình vận hành và giảm thiểu rủi ro.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
-              <button 
+              <button
                 onClick={() => openAuth('register')}
                 className="w-full sm:w-auto px-10 py-5 bg-brand hover:bg-brand-dark text-white font-bold rounded-2xl shadow-xl shadow-brand/20 transition-all"
               >
@@ -2434,7 +2305,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                 </a>
               </div>
             </div>
-            
+
             <div>
               <h4 className="font-bold text-slate-900 mb-6">Liên hệ với chúng tôi</h4>
               <ul className="space-y-4">
@@ -2517,7 +2388,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
               </ul>
             </div>
           </div>
-          
+
           <div className="pt-8 border-t border-slate-200 text-center">
             <p className="text-sm text-slate-500">
               © 2024 LabBox by MOBLAB. All rights reserved.
@@ -2535,7 +2406,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return localStorage.getItem('isLoggedIn') === 'true';
   });
-  
+
   const [authModal, setAuthModal] = useState<{ isOpen: boolean, mode: 'login' | 'register' }>({
     isOpen: false,
     mode: 'login'
@@ -2562,11 +2433,11 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={
-        <LandingPage 
-          openAuth={openAuth} 
-          authModal={authModal} 
-          closeAuth={closeAuth} 
-          setIsLoggedIn={setIsLoggedIn} 
+        <LandingPage
+          openAuth={openAuth}
+          authModal={authModal}
+          closeAuth={closeAuth}
+          setIsLoggedIn={setIsLoggedIn}
           onLoginSuccess={() => { setIsLoggedIn(true); navigate('/cms'); }}
         />
       } />
