@@ -42,7 +42,11 @@ import {
   QrCode,
   Lock,
   ChevronLeft,
-  MessageCircle
+  MessageCircle,
+  User,
+  Phone,
+  Shield,
+  Clock
 } from 'lucide-react';
 
 // --- CMS Components ---
@@ -92,6 +96,8 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
   const staffLoadedRef = React.useRef(false);
   const videosLoadedRef = React.useRef(false);
   const storesLoadedRef = React.useRef(false);
+  const [roles, setRoles] = useState<any[]>([]);
+  const rolesLoadedRef = React.useRef(false);
 
   // Load current user via auth/me
   React.useEffect(() => {
@@ -255,6 +261,33 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     staffLoadedRef.current = true;
     fetchStaff();
   }, [location.pathname]);
+
+  // Load roles list from API
+  React.useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/rbac/roles`;
+        const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        headers['X-Timestamp'] = Date.now().toString();
+        const res = await fetch(endpoint, { method: 'GET', headers });
+        const data = await res.json().catch(() => ({}));
+        const ok = res.ok && (data?.status === true || data?.status_code === 0);
+        if (ok) {
+          const listCandidate = data?.data?.data ?? data?.data ?? data?.roles ?? data ?? [];
+          const items = Array.isArray(listCandidate) ? listCandidate : (Array.isArray(listCandidate?.data) ? listCandidate.data : []);
+          setRoles(items);
+        }
+      } catch (err) {
+        console.error('Error fetching roles', err);
+      }
+    };
+    if (rolesLoadedRef.current) return;
+    rolesLoadedRef.current = true;
+    fetchRoles();
+  }, []);
 
   // Modal states
   const [videoModal, setVideoModal] = useState<{ isOpen: boolean, video: any | null }>({ isOpen: false, video: null });
@@ -490,6 +523,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     const statusNum = Number(statusStr || 2); // default active
 
     const phone = (formData.get('phone') as string || '').trim();
+    const role_id = formData.get('role_id') as string;
 
     const username = !isEdit ? ((formData.get('username') as string) || '').trim() : '';
     const password = !isEdit ? ((formData.get('password') as string) || '').trim() : '';
@@ -497,6 +531,11 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
 
     if (!full_name || !email || (!isEdit && !username)) {
       showToast('Vui lòng nhập đầy đủ Username, Họ tên và Email', 'error');
+      return;
+    }
+
+    if (!role_id) {
+      showToast('Vui lòng chọn vai trò cho nhân viên', 'error');
       return;
     }
 
@@ -543,6 +582,28 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
       }
       headers['X-Timestamp'] = Date.now().toString();
 
+      const assignRoleToUser = async (userId: number, roleId: number) => {
+        try {
+          const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+          const token = localStorage.getItem('token');
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            Accept: 'application/json, text/plain, */*',
+          };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          headers['X-Timestamp'] = Date.now().toString();
+
+          const endpoint = `${apiBase}/api/v1/rbac/users/${userId}/roles`;
+          await fetch(endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ id: userId, role_ids: [roleId] }),
+          });
+        } catch (err) {
+          console.error('RBAC assign role failed', err);
+        }
+      };
+
       if (isEdit) {
         // Update existing staff via API
         const userId = Number(staffModal.member.id ?? staffModal.member.user_id);
@@ -553,6 +614,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           email,
           phone,
           status: statusNum,
+          role_id: role_id ? Number(role_id) : undefined,
         };
 
         const resp = await fetch(endpoint, {
@@ -566,6 +628,11 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           console.error('Update staff failed', respData);
           showToast('Cập nhật nhân viên không thành công', 'error');
         } else {
+          // Assign role via RBAC API
+          if (role_id) {
+            await assignRoleToUser(userId, Number(role_id));
+          }
+
           const updatedUser = respData?.data || {
             ...staffModal.member,
             full_name,
@@ -590,6 +657,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           status: statusNum,
           password,
           confirm_password,
+          role_id: role_id ? Number(role_id) : undefined,
         };
 
         if (!Number.isNaN(numericOwner)) {
@@ -607,6 +675,12 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           console.error('Create staff failed', respData);
           showToast('Thêm nhân viên không thành công', 'error');
         } else {
+          // Assign role via RBAC API
+          const newUserId = respData?.data?.id || respData?.data?.user_id;
+          if (newUserId && role_id) {
+            await assignRoleToUser(Number(newUserId), Number(role_id));
+          }
+
           showToast('Thêm nhân viên thành công', 'success');
           // Reload page to get latest staff list from server
           setTimeout(() => {
@@ -916,110 +990,159 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
             />
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[2.5rem] p-10 shadow-2xl overflow-hidden"
             >
-              <h3 className="text-2xl font-display font-bold text-slate-900 mb-6">
-                {staffModal.member ? 'Sửa nhân viên' : 'Thêm nhân viên mới'}
-              </h3>
-              <form onSubmit={handleSaveStaff} className="space-y-4">
-                {!staffModal.member && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Username</label>
+              <button 
+                onClick={() => setStaffModal({ isOpen: false, member: null })}
+                className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="mb-8">
+                <h3 className="text-3xl font-display font-bold text-slate-900 mb-2">
+                  {staffModal.member ? 'Cập nhật nhân viên' : 'Thêm nhân viên mới'}
+                </h3>
+                <p className="text-slate-500 text-sm">Điền thông tin chi tiết để quản lý nhân sự hiệu quả hơn</p>
+              </div>
+
+              <form onSubmit={handleSaveStaff} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {!staffModal.member && (
+                    <div className="group">
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                        <User size={14} /> Username
+                      </label>
+                      <input
+                        name="username"
+                        defaultValue=""
+                        required
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium"
+                        placeholder="VD: test003"
+                      />
+                    </div>
+                  )}
+                  <div className={`group ${staffModal.member ? 'col-span-2' : ''}`}>
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                      <User size={14} /> Họ và tên
+                    </label>
                     <input
-                      name="username"
-                      defaultValue=""
+                      name="full_name"
+                      defaultValue={staffModal.member?.full_name || staffModal.member?.name}
                       required
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                      placeholder="VD: test003"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium"
+                      placeholder="VD: Nguyễn Văn A"
                     />
                   </div>
-                )}
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Họ và tên</label>
-                  <input
-                    name="full_name"
-                    defaultValue={staffModal.member?.full_name || staffModal.member?.name}
-                    required
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                    placeholder="VD: Nguyễn Văn A"
-                  />
+
+                  <div className="group">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                      <Mail size={14} /> Email
+                    </label>
+                    <input
+                      name="email"
+                      type="email"
+                      defaultValue={staffModal.member?.email}
+                      required
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium"
+                      placeholder="name@company.com"
+                    />
+                  </div>
+
+                  <div className="group">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                      <Phone size={14} /> Số điện thoại
+                    </label>
+                    <input
+                      name="phone"
+                      type="tel"
+                      defaultValue={staffModal.member?.phone || ''}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium"
+                      placeholder="VD: 0912345678"
+                    />
+                  </div>
+
+                  <div className="group">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                      <Shield size={14} /> Vai trò
+                    </label>
+                    <select
+                      name="role_id"
+                      defaultValue={staffModal.member?.roles?.[0]?.id || staffModal.member?.role_id}
+                      required
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium appearance-none cursor-pointer"
+                    >
+                      <option value="">Chọn vai trò</option>
+                      {roles.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="group">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                      <Clock size={14} /> Trạng thái
+                    </label>
+                    <select
+                      name="status"
+                      defaultValue={
+                        staffModal.member
+                          ? String(Number(staffModal.member.status) === 1 ? 1 : 2)
+                          : '2'
+                      }
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium appearance-none cursor-pointer"
+                    >
+                      <option value="2">Hoạt động</option>
+                      <option value="1">Không hoạt động</option>
+                    </select>
+                  </div>
+
+                  {!staffModal.member && (
+                    <>
+                      <div className="group">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                          <Lock size={14} /> Mật khẩu
+                        </label>
+                        <input
+                          name="password"
+                          type="password"
+                          required
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                      <div className="group">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                          <Lock size={14} /> Xác nhận mật khẩu
+                        </label>
+                        <input
+                          name="confirm_password"
+                          type="password"
+                          required
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email</label>
-                  <input
-                    name="email"
-                    type="email"
-                    defaultValue={staffModal.member?.email}
-                    required
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                    placeholder="name@company.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Số điện thoại</label>
-                  <input
-                    name="phone"
-                    type="tel"
-                    defaultValue={staffModal.member?.phone || ''}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                    placeholder="VD: 0912345678"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Trạng thái</label>
-                  <select
-                    name="status"
-                    defaultValue={
-                      staffModal.member
-                        ? String(Number(staffModal.member.status) === 1 ? 1 : 2)
-                        : '2'
-                    }
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                  >
-                    <option value="2">Hoạt động</option>
-                    <option value="1">Không hoạt động</option>
-                  </select>
-                </div>
-                {!staffModal.member && (
-                  <>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mật khẩu</label>
-                      <input
-                        name="password"
-                        type="password"
-                        required
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                        placeholder="••••••••"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Xác nhận mật khẩu</label>
-                      <input
-                        name="confirm_password"
-                        type="password"
-                        required
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand transition-all"
-                        placeholder="••••••••"
-                      />
-                    </div>
-                  </>
-                )}
-                <div className="flex gap-3 pt-4">
+
+                <div className="flex gap-4 pt-6">
                   <button
                     type="button"
                     onClick={() => setStaffModal({ isOpen: false, member: null })}
-                    className="flex-1 py-3 font-bold text-slate-500 bg-slate-100 rounded-xl"
+                    className="flex-1 py-4 font-bold text-slate-500 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
                   >
-                    Hủy
+                    Hủy bỏ
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 font-bold text-white bg-brand rounded-xl shadow-lg shadow-brand/20"
+                    className="flex-1 py-4 font-bold text-white bg-brand rounded-2xl shadow-xl shadow-brand/20 hover:bg-brand-dark transition-all active:scale-95"
                   >
-                    Lưu lại
+                    {staffModal.member ? 'Cập nhật ngay' : 'Thêm nhân viên'}
                   </button>
                 </div>
               </form>

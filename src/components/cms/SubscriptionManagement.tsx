@@ -95,7 +95,7 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
                 {currentSubscriptions && currentSubscriptions.length ? (
                   <div className="flex flex-wrap items-center gap-2 mt-3">
                     <span className="px-3 py-1 rounded-full bg-white/10 text-white text-xs font-bold">
-                      {(currentSubscriptions[0].price * 1000).toLocaleString('vi-VN')}đ/tháng
+                      {(currentSubscriptions[0].price).toLocaleString('vi-VN')}đ/tháng
                     </span>
                     <span className="px-3 py-1 rounded-full bg-white/10 text-white text-xs font-bold">
                       {currentSubscriptions[0].max_stores} cửa hàng
@@ -168,7 +168,7 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
                 <div key={plan.id} className="p-8 rounded-[2.5rem] border border-slate-200 bg-white flex flex-col transition-all hover:border-brand hover:shadow-lg">
                   <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
                   <div className="flex items-baseline gap-1 mb-2">
-                    <span className="text-3xl font-display font-bold text-slate-900">{(plan.price * 1000).toLocaleString('vi-VN')}đ</span>
+                    <span className="text-3xl font-display font-bold text-slate-900">{(plan.price).toLocaleString('vi-VN')}đ</span>
                     <span className="text-slate-500 text-xs">/tháng</span>
                   </div>
                   <p className="text-sm text-slate-500 mb-6">Created: {new Date(plan.created_at).toLocaleDateString('vi-VN')}</p>
@@ -249,7 +249,7 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
 
                       <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-200">
                         <p className="text-sm text-slate-500 mb-2">Giá thanh toán</p>
-                        <p className="text-3xl font-display font-bold text-emerald-600">{(selectedPlan.price * 1000).toLocaleString('vi-VN')}đ</p>
+                        <p className="text-3xl font-display font-bold text-emerald-600">{(selectedPlan.price).toLocaleString('vi-VN')}đ</p>
                         <p className="text-xs text-slate-500 mt-1">mỗi tháng</p>
                       </div>
 

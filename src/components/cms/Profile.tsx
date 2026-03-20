@@ -8,6 +8,9 @@ const Profile: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [phoneDraft, setPhoneDraft] = useState('');
   const [emailDraft, setEmailDraft] = useState('');
+  const [fullNameDraft, setFullNameDraft] = useState('');
+  const [dobDraft, setDobDraft] = useState('');
+  const [genderDraft, setGenderDraft] = useState('');
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [oldPassword, setOldPassword] = useState('');
@@ -17,6 +20,17 @@ const Profile: React.FC = () => {
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirmVis, setShowConfirmVis] = useState(false);
+
+  const formatDateForInput = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '';
+      return date.toISOString().split('T')[0];
+    } catch {
+      return '';
+    }
+  };
 
   useEffect(() => {
     const fetchMe = async () => {
@@ -37,6 +51,9 @@ const Profile: React.FC = () => {
           setUser(info);
           setPhoneDraft(String(info?.phone || ''));
           setEmailDraft(String(info?.email || ''));
+          setFullNameDraft(String(info?.full_name || info?.name || ''));
+          setDobDraft(formatDateForInput(info?.date_of_birth || ''));
+          setGenderDraft(String(info?.gender ?? ''));
           try { localStorage.setItem('user_info', JSON.stringify(info)); } catch {}
         } else {
           const raw = localStorage.getItem('user_info');
@@ -45,6 +62,9 @@ const Profile: React.FC = () => {
             setUser(info);
             setPhoneDraft(String(info?.phone || ''));
             setEmailDraft(String(info?.email || ''));
+            setFullNameDraft(String(info?.full_name || info?.name || ''));
+            setDobDraft(formatDateForInput(info?.date_of_birth || ''));
+            setGenderDraft(String(info?.gender ?? ''));
           }
           setError(data?.message || null);
         }
@@ -55,6 +75,9 @@ const Profile: React.FC = () => {
           setUser(info);
           setPhoneDraft(String(info?.phone || ''));
           setEmailDraft(String(info?.email || ''));
+          setFullNameDraft(String(info?.full_name || info?.name || ''));
+          setDobDraft(formatDateForInput(info?.date_of_birth || ''));
+          setGenderDraft(String(info?.gender ?? ''));
         }
         setError('Không thể kết nối đến máy chủ');
       } finally {
@@ -87,6 +110,9 @@ const Profile: React.FC = () => {
     setInfoMsg(null);
     const phone = phoneDraft.trim();
     const email = emailDraft.trim();
+    const full_name = fullNameDraft.trim();
+    const date_of_birth = dobDraft.trim();
+    const gender = genderDraft ? Number(genderDraft) : null;
 
     if (phone && !phoneRegex.test(phone)) {
       setInfoMsg('Số điện thoại không hợp lệ');
@@ -118,7 +144,7 @@ const Profile: React.FC = () => {
       const resp = await fetch(endpoint, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ user_id: userId, phone, email }),
+        body: JSON.stringify({ user_id: userId, phone, email, full_name, date_of_birth, gender }),
       });
       const respData = await resp.json().catch(() => ({}));
       const ok = resp.ok && (respData?.status === true || respData?.status_code === 0 || respData?.success === true);
@@ -128,8 +154,9 @@ const Profile: React.FC = () => {
         return;
       }
 
-      const updatedUser = respData?.data?.user ?? respData?.data ?? { ...(user || {}), phone, email };
+      const updatedUser = respData?.data?.user ?? respData?.data ?? { ...(user || {}), phone, email, full_name, date_of_birth, gender };
       setUser(updatedUser);
+      setDobDraft(formatDateForInput(updatedUser?.date_of_birth || ''));
       try { localStorage.setItem('user_info', JSON.stringify(updatedUser)); } catch {}
       setInfoMsg('Cập nhật thông tin thành công');
     } catch {
@@ -224,8 +251,9 @@ const Profile: React.FC = () => {
               ) : (
                 <>
                   {/* Basic Info Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
+                  <div className="space-y-6 md:space-y-8">
+                    {/* Row 1 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
                       <div className="group">
                         <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
                           <User size={14} /> Tên đăng nhập
@@ -238,6 +266,22 @@ const Profile: React.FC = () => {
 
                       <div className="group">
                         <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                          <User size={14} /> Họ và tên
+                        </label>
+                        <input
+                          type="text"
+                          value={fullNameDraft}
+                          onChange={(e) => { setFullNameDraft(e.target.value); setInfoMsg(null); }}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium"
+                          placeholder="Nhập họ và tên"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Row 2 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
+                      <div className="group">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
                           <Mail size={14} /> Email liên hệ
                         </label>
                         <input
@@ -248,9 +292,7 @@ const Profile: React.FC = () => {
                           placeholder="shop@example.com"
                         />
                       </div>
-                    </div>
 
-                    <div className="space-y-6">
                       <div className="group">
                         <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
                           <Phone size={14} /> Số điện thoại
@@ -263,20 +305,62 @@ const Profile: React.FC = () => {
                           placeholder="0912 xxx xxx"
                         />
                       </div>
+                    </div>
+
+                    {/* Row 3 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
+                      <div className="group">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                          <Calendar size={14} /> Ngày sinh
+                        </label>
+                        <input
+                          type="date"
+                          value={dobDraft}
+                          onChange={(e) => { setDobDraft(e.target.value); setInfoMsg(null); }}
+                          className="w-full px-4 py-[11px] bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium"
+                        />
+                      </div>
 
                       <div className="group">
-                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-                          <Clock size={14} /> Trạng thái tài khoản
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
+                          <User size={14} /> Giới tính
                         </label>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
-                            Number(user?.status) === 2 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-200'
-                          }`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${Number(user?.status) === 2 ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                            {Number(user?.status) === 2 ? 'Hoạt động' : 'Đang khóa'}
-                          </span>
+                        <div className="flex items-center gap-6 px-4 py-[11px] bg-white border border-slate-200 rounded-2xl">
+                          {[{ value: "1", label: "Nam" }, { value: "2", label: "Nữ" }, { value: "3", label: "Khác" }].map(option => (
+                            <label key={option.value} className="flex items-center gap-2 cursor-pointer group/radio">
+                              <div className="relative flex items-center justify-center w-5 h-5">
+                                <input 
+                                  type="radio" 
+                                  name="gender" 
+                                  value={option.value} 
+                                  checked={String(genderDraft) === option.value} 
+                                  onChange={(e) => { setGenderDraft(e.target.value); setInfoMsg(null); }} 
+                                  className="peer sr-only" 
+                                />
+                                <div className="w-5 h-5 border-2 border-slate-300 rounded-full peer-checked:border-brand peer-focus-visible:ring-4 ring-brand/20 transition-all peer-checked:bg-white group-hover/radio:border-slate-400"></div>
+                                <div className="absolute w-2.5 h-2.5 bg-brand rounded-full scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                              </div>
+                              <span className={`text-sm font-medium transition-colors ${String(genderDraft) === option.value ? 'text-slate-900' : 'text-slate-600 group-hover/radio:text-slate-900'}`}>
+                                {option.label}
+                              </span>
+                            </label>
+                          ))}
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 mb-2 group w-full md:w-1/2 md:pr-4">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+                      <Clock size={14} /> Trạng thái tài khoản
+                    </label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
+                        Number(user?.status) === 2 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-200'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${Number(user?.status) === 2 ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                        {Number(user?.status) === 2 ? 'Hoạt động' : 'Đang khóa'}
+                      </span>
                     </div>
                   </div>
 
@@ -292,7 +376,7 @@ const Profile: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleSaveProfile}
-                      disabled={phoneSaving || (phoneDraft.trim() === String(user?.phone || '').trim() && emailDraft.trim() === String(user?.email || '').trim())}
+                      disabled={phoneSaving || (phoneDraft.trim() === String(user?.phone || '').trim() && emailDraft.trim() === String(user?.email || '').trim() && fullNameDraft.trim() === String(user?.full_name || user?.name || '').trim() && dobDraft.trim() === String(user?.date_of_birth || '').trim() && genderDraft === String(user?.gender ?? ''))}
                       className="px-10 py-4 bg-brand hover:bg-brand-dark disabled:bg-slate-200 disabled:text-slate-500 text-white font-bold rounded-2xl transition-all shadow-xl shadow-brand/20 active:scale-95"
                     >
                       {phoneSaving ? 'Đang lưu...' : 'Lưu tất cả thay đổi'}

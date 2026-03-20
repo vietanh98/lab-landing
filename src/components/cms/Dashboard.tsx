@@ -91,17 +91,30 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
           <h3 className="font-bold text-slate-900 mb-6">Gói dịch vụ</h3>
           <div className="bg-slate-900 rounded-2xl p-6 text-white mb-6">
-            <p className="text-brand text-xs font-bold uppercase tracking-wider mb-1">Chuyên nghiệp</p>
-            <h4 className="text-xl font-bold mb-4">199.000đ / tháng</h4>
-            <div className="space-y-3 mb-6">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Video đã dùng</span>
-                <span>450/500</span>
-              </div>
-              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-brand w-[90%]" />
-              </div>
-            </div>
+            {(() => {
+              const sub = Array.isArray(metrics?.subscriptions) ? metrics.subscriptions[0] : metrics?.subscriptions;
+              const planName = sub?.plan_name || 'Chuyên nghiệp';
+              const price = sub?.price || 199000;
+              const used = metrics?.total_videos || 0;
+              const limit = sub?.max_videos || 500;
+              const percent = Math.min(100, Math.round((used / limit) * 100));
+
+              return (
+                <>
+                  <p className="text-brand text-xs font-bold uppercase tracking-wider mb-1">{planName}</p>
+                  <h4 className="text-xl font-bold mb-4">{price.toLocaleString('vi-VN')}đ / tháng</h4>
+                  <div className="space-y-3 mb-6">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">Video đã dùng</span>
+                      <span>{used}/{limit}</span>
+                    </div>
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-brand" style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
             <button 
               onClick={onUpgrade}
               className="w-full py-3 bg-brand hover:bg-brand-dark text-white text-sm font-bold rounded-xl transition-all"
