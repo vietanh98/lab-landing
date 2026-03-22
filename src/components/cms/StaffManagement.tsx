@@ -43,10 +43,10 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff, onEditStaff, o
                 <td className="px-6 py-4">
                   {(() => {
                     const roleName =
-                      s.role ||
-                      (Array.isArray(s.roles) && s.roles.length > 0 ? s.roles[0]?.name : undefined) ||
-                      '—';
-                    return <span className="text-sm text-slate-600">{roleName}</span>;
+                      (Array.isArray(s.roles) && s.roles.length > 0
+                        ? s.roles.map((r: any) => r.description || r.name || r.role_name).join(', ')
+                        : s.role_name || s.role || '—');
+                    return <span className="text-sm text-slate-600 font-medium">{roleName}</span>;
                   })()}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">

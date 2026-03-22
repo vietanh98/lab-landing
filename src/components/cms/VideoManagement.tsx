@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Eye, ArrowUpRight, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import CustomSelect from '../ui/CustomSelect';
 
 interface VideoManagementProps {
   videos: any[];
@@ -122,19 +123,22 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
           <div className="text-sm font-bold text-slate-900">
             Quản lý Video {storeName ? `• ${storeName}` : ''}
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={perPage}
-              onChange={(e) => {
+          <div className="flex items-center gap-2 min-w-32">
+            <CustomSelect
+              name="perPage"
+              label=""
+              hideLabel
+              defaultValue={perPage}
+              options={[
+                { id: 10, name: '10 / trang' },
+                { id: 20, name: '20 / trang' },
+                { id: 50, name: '50 / trang' }
+              ]}
+              onChange={(val) => {
                 setPage(1);
-                setPerPage(Number(e.target.value) || 10);
+                setPerPage(Number(val) || 10);
               }}
-              className="px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none"
-            >
-              <option value={10}>10 / trang</option>
-              <option value={20}>20 / trang</option>
-              <option value={50}>50 / trang</option>
-            </select>
+            />
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -147,19 +151,18 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
             className="px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none"
             placeholder="Tiêu đề"
           />
-          <select
-            value={filterStore}
-            onChange={(e) => {
-              setFilterStore(e.target.value);
+          <CustomSelect
+            name="filterStore"
+            label=""
+            hideLabel
+            defaultValue={filterStore}
+            placeholder="Cửa hàng (tất cả)"
+            options={stores.map(s => ({ id: s, name: s }))}
+            onChange={(val) => {
+              setFilterStore(String(val));
               setPage(1);
             }}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none"
-          >
-            <option value="">Cửa hàng (tất cả)</option>
-            {stores.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+          />
           <input
             value={filterQr1}
             onChange={(e) => {

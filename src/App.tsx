@@ -57,6 +57,7 @@ import StoreManagement from './components/cms/StoreManagement';
 import StaffManagement from './components/cms/StaffManagement';
 import SubscriptionManagement from './components/cms/SubscriptionManagement';
 import Profile from './components/cms/Profile';
+import CustomSelect from './components/ui/CustomSelect';
 
 // --- Components ---
 declare var grecaptcha: any;
@@ -98,6 +99,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
   const storesLoadedRef = React.useRef(false);
   const [roles, setRoles] = useState<any[]>([]);
   const rolesLoadedRef = React.useRef(false);
+  const [me, setMe] = useState<any>(null);
 
   // Load current user via auth/me
   React.useEffect(() => {
@@ -119,6 +121,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         }
         const infoCandidate = data?.data?.user ?? data?.data ?? data?.user ?? data;
         if (infoCandidate && typeof infoCandidate === 'object') {
+          setMe(infoCandidate);
           try {
             localStorage.setItem('user_info', JSON.stringify(infoCandidate));
           } catch { }
@@ -254,8 +257,8 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         showToast('Không thể tải danh sách nhân viên', 'error');
       }
     };
-    const isStaffRoute = location.pathname === '/cms/staff';
-    if (!isStaffRoute || staffLoadedRef.current) {
+    const shouldFetchStaff = ['/cms/staff', '/cms/stores'].includes(location.pathname);
+    if (!shouldFetchStaff || staffLoadedRef.current) {
       return;
     }
     staffLoadedRef.current = true;
@@ -399,24 +402,8 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     const name = formData.get('name') as string;
     const position = Number(formData.get('position')) || 0;
 
-    // derive user_id from stored user_info if available, otherwise decode JWT
-    let user_id: number | string = '';
-    const stored = localStorage.getItem('user_info');
-    if (stored) {
-      try {
-        const info = JSON.parse(stored);
-        user_id = info.id || info.user_id || info.sub || info.userId || '';
-      } catch { }
-    }
-    if (!user_id) {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          user_id = payload.sub || payload.user_id || payload.id || '';
-        } catch { }
-      }
-    }
+    const user_id = formData.get('user_id') as string;
+    const manager_ids = formData.getAll('manager_ids') as string[];
 
     if (storeModal.store) {
       // Edit via API (multipart PUT)
@@ -429,11 +416,14 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         if (token) headers['Authorization'] = `Bearer ${token}`;
         headers['X-Timestamp'] = Date.now().toString();
 
-        const numericUserId = user_id ? Number(user_id) : undefined;
         const req = new FormData();
         req.append('name', name);
         req.append('position', String(position));
-        if (numericUserId !== undefined && !isNaN(numericUserId)) req.append('user_id', String(numericUserId));
+        if (user_id) req.append('user_id', String(user_id));
+        manager_ids.forEach(uid => {
+          const n = Number(uid);
+          if (!isNaN(n)) req.append('manager_ids', String(n));
+        });
         const files = formData.getAll('images');
         files.forEach((f) => {
           if (f instanceof File) req.append('images', f);
@@ -469,11 +459,14 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         const endpoint = `${apiBase}/api/v1/store`;
         // ensure user_id is numeric
-        const numericUserId = user_id ? Number(user_id) : undefined;
         const req = new FormData();
         req.append('name', name);
         req.append('position', String(position));
-        if (numericUserId !== undefined && !isNaN(numericUserId)) req.append('user_id', String(numericUserId));
+        if (user_id) req.append('user_id', String(user_id));
+        manager_ids.forEach(uid => {
+          const n = Number(uid);
+          if (!isNaN(n)) req.append('manager_ids', String(n));
+        });
         const files = formData.getAll('images');
         files.forEach((f) => {
           if (f instanceof File) req.append('images', f);
@@ -957,6 +950,21 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                     placeholder="1"
                   />
                 </div>
+                <input type="hidden" name="user_id" value={storeModal.store?.user_id || me?.id || ''} />
+                <CustomSelect
+                  name="manager_ids"
+                  label="Nhân viên quản lý"
+                  multiple={true}
+                  defaultValue={(() => {
+                    const store = storeModal.store;
+                    if (!store) return [];
+                    // Try to get IDs from various possible fields
+                    const rawIds = store.manager_ids || store.managers?.map((m: any) => m.id || m.user_id) || [];
+                    return Array.isArray(rawIds) ? rawIds.map(String) : [String(rawIds)];
+                  })()}
+                  options={staff.map(m => ({ id: m.id, name: m.full_name || m.name || m.username }))}
+                  placeholder="Chọn nhân viên"
+                />
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
@@ -1065,40 +1073,28 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                     />
                   </div>
 
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
-                      <Shield size={14} /> Vai trò
-                    </label>
-                    <select
-                      name="role_id"
-                      defaultValue={staffModal.member?.roles?.[0]?.id || staffModal.member?.role_id}
-                      required
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium appearance-none cursor-pointer"
-                    >
-                      <option value="">Chọn vai trò</option>
-                      {roles.map(r => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <CustomSelect
+                    name="role_id"
+                    label="Vai trò"
+                    defaultValue={staffModal.member?.roles?.[0]?.id || staffModal.member?.role_id}
+                    options={roles.map(r => ({ id: r.id, name: r.description || r.name }))}
+                    placeholder="Chọn vai trò"
+                    required
+                  />
 
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 group-focus-within:text-brand transition-colors">
-                      <Clock size={14} /> Trạng thái
-                    </label>
-                    <select
-                      name="status"
-                      defaultValue={
-                        staffModal.member
-                          ? String(Number(staffModal.member.status) === 1 ? 1 : 2)
-                          : '2'
-                      }
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all text-slate-900 font-medium appearance-none cursor-pointer"
-                    >
-                      <option value="2">Hoạt động</option>
-                      <option value="1">Không hoạt động</option>
-                    </select>
-                  </div>
+                  <CustomSelect
+                    name="status"
+                    label="Trạng thái"
+                    defaultValue={
+                      staffModal.member
+                        ? String(Number(staffModal.member.status) === 1 ? 1 : 2)
+                        : '2'
+                    }
+                    options={[
+                      { id: '2', name: 'Hoạt động' },
+                      { id: '1', name: 'Không hoạt động' }
+                    ]}
+                  />
 
                   {!staffModal.member && (
                     <>
@@ -1436,13 +1432,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
   const phoneRegex = /^(?:\+?84|0)(3|5|7|8|9)\d{8}$/;
 
   const normalizePhone = (raw: string) => {
-    const p = String(raw || '').trim().replace(/\s+/g, '');
-    if (!p) return p;
-    if (p.startsWith('+84')) return p;
-    if (p.startsWith('+')) return p;
-    if (p.startsWith('84')) return `+${p}`;
-    if (p.startsWith('0')) return `+84${p.slice(1)}`;
-    return p;
+    return String(raw || '').trim().replace(/\s+/g, '');
   };
 
   const getApiBase = () => import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -1453,7 +1443,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     const next: Record<string, string> = {};
     const normalized = normalizePhone(registerData.phone);
     if (!normalized || !phoneRegex.test(normalized)) {
-      next.phone = 'Số điện thoại không hợp lệ (VD: +84901234567)';
+      next.phone = 'Số điện thoại không hợp lệ (VD: 0901234567 hoặc +84901234567)';
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -2240,7 +2230,7 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
             {(pricingPlans.length
               ? pricingPlans.map((p, idx) => ({
                 name: p.name,
-                price: typeof p.price === 'number' && p.price > 0 ? `${(p.price * 1000).toLocaleString('vi-VN')}đ` : 'Miễn phí',
+                price: typeof p.price === 'number' && p.price > 0 ? `${p.price.toLocaleString('vi-VN')}đ` : 'Miễn phí',
                 period: "mỗi tháng",
                 desc: "Gói dịch vụ LabBox",
                 features: ["Quản lý video", "Tìm kiếm thông minh", "Hỗ trợ kỹ thuật"],

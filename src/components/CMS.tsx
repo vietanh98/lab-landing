@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import CustomSelect from './ui/CustomSelect';
 import { 
   LayoutDashboard, 
   Package, 
@@ -551,16 +552,21 @@ const UserManagement = ({ users, onAdd, onEdit, onDelete }: { users: UserData[],
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">Vai trò</label>
-            <select 
+            <CustomSelect
+              name="role"
+              label=""
+              hideLabel
               value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-brand bg-white"
-            >
-              <option value="">Chọn vai trò...</option>
-              <option value="Quản lý kho">Quản lý kho</option>
-              <option value="Nhân viên đóng gói">Nhân viên đóng gói</option>
-              <option value="Kế toán">Kế toán</option>
-            </select>
+              onChange={(value) => setFormData({ ...formData, role: value })}
+              options={[
+                { id: '', name: 'Chọn vai trò...' },
+                { id: 'Nhân viên đóng gói', name: 'Nhân viên đóng gói' },
+                { id: 'Quản lý kho', name: 'Quản lý kho' },
+                { id: 'Kế toán', name: 'Kế toán' },
+                { id: 'Admin', name: 'Admin' }
+              ]}
+              placeholder="Chọn vai trò"
+            />
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
