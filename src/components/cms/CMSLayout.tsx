@@ -9,7 +9,8 @@ import {
   LogOut, 
   Search, 
   Bell, 
-  Plus 
+  Plus,
+  ArrowLeft
 } from 'lucide-react';
 
 interface CMSLayoutProps {
@@ -225,14 +226,25 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 flex flex-col min-h-0 p-8 overflow-hidden">
           {currentPath !== '/cms/profile' && (
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-2xl font-display font-bold text-slate-900">
-                  {activeItem.label}
-                </h1>
-                <p className="text-slate-500 text-sm mt-1">Quản lý hệ thống LabBox của bạn</p>
+            <div className="flex-shrink-0 flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                {currentPath !== '/cms' && (
+                  <button
+                    onClick={() => navigate(-1)}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-brand hover:text-brand hover:bg-brand/5 shadow-sm transition-all active:scale-95"
+                    title="Quay lại trang trước"
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
+                )}
+                <div>
+                  <h1 className="text-2xl font-display font-bold text-slate-900">
+                    {activeItem.label}
+                  </h1>
+                  <p className="text-slate-500 text-sm mt-1">Quản lý hệ thống LabBox của bạn</p>
+                </div>
               </div>
               <div className="flex gap-3">
                 {activeItem.id === 'stores-videos' && (
@@ -257,7 +269,9 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
             </div>
           )}
 
-          <Outlet />
+          <div className="flex-1 min-h-0">
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>

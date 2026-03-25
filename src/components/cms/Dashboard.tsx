@@ -1,5 +1,6 @@
-import React from 'react';
-import { Video, Store, Users, Box, TrendingUp, Play, Eye, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Video, Store, Users, Box, TrendingUp, Play, Eye, Trash2, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface DashboardProps {
   videos: any[];
@@ -18,15 +19,45 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, onViewVideo, onDeleteVideo, onUpgrade }) => {
+  const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month'>('day');
+
   const toHumanSize = (bytes?: number) => {
     if (!bytes || typeof bytes !== 'number' || isNaN(bytes)) return '0 GB';
     const gb = bytes / (1024 * 1024 * 1024);
     return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
   };
+
   const totalVideos = typeof metrics?.total_videos === 'number' ? metrics!.total_videos : videos.length;
   const totalStores = typeof metrics?.total_stores === 'number' ? metrics!.total_stores : stores.length;
   const totalEmployees = typeof metrics?.total_employees === 'number' ? metrics!.total_employees : staff.length;
   const totalSizeStr = toHumanSize(metrics?.total_size_bytes);
+
+  const chartData = {
+    day: [
+      { label: '08:00', value: 12 },
+      { label: '10:00', value: 34 },
+      { label: '12:00', value: 45 },
+      { label: '14:00', value: 28 },
+      { label: '16:00', value: 56 },
+      { label: '18:00', value: 42 },
+      { label: '20:00', value: 15 },
+    ],
+    week: [
+      { label: 'Thứ 2', value: 120 },
+      { label: 'Thứ 3', value: 150 },
+      { label: 'Thứ 4', value: 180 },
+      { label: 'Thứ 5', value: 140 },
+      { label: 'Thứ 6', value: 210 },
+      { label: 'Thứ 7', value: 250 },
+      { label: 'Chủ nhật', value: 190 },
+    ],
+    month: [
+      { label: 'Tuần 1', value: 850 },
+      { label: 'Tuần 2', value: 940 },
+      { label: 'Tuần 3', value: 1100 },
+      { label: 'Tuần 4', value: 890 },
+    ]
+  };
 
   return (
     <div className="space-y-8">
@@ -88,48 +119,77 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-          <h3 className="font-bold text-slate-900 mb-6">Gói dịch vụ</h3>
-          <div className="bg-slate-900 rounded-2xl p-6 text-white mb-6">
-            {(() => {
-              const sub = Array.isArray(metrics?.subscriptions) ? metrics.subscriptions[0] : metrics?.subscriptions;
-              const planName = sub?.plan_name || 'Chuyên nghiệp';
-              const price = sub?.price || 199000;
-              const used = metrics?.total_videos || 0;
-              const limit = sub?.max_videos || 500;
-              const percent = Math.min(100, Math.round((used / limit) * 100));
-
-              return (
-                <>
-                  <p className="text-brand text-xs font-bold uppercase tracking-wider mb-1">{planName}</p>
-                  <h4 className="text-xl font-bold mb-4">{price.toLocaleString('vi-VN')}đ / tháng</h4>
-                  <div className="space-y-3 mb-6">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">Video đã dùng</span>
-                      <span>{used}/{limit}</span>
-                    </div>
-                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-brand" style={{ width: `${percent}%` }} />
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
-            <button 
-              onClick={onUpgrade}
-              className="w-full py-3 bg-brand hover:bg-brand-dark text-white text-sm font-bold rounded-xl transition-all"
-            >
-              Nâng cấp ngay
-            </button>
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 text-sm text-slate-600">
-              <Box size={16} className="text-emerald-500" />
-              Lưu trữ 500 video
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8 flex flex-col h-full min-h-[450px]">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="font-bold text-slate-900">Thống kê quay video</h3>
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              {(['day', 'week', 'month'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTimeFilter(t)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                    timeFilter === t 
+                      ? 'bg-white text-brand shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {t === 'day' ? 'Ngày' : t === 'week' ? 'Tuần' : 'Tháng'}
+                </button>
+              ))}
             </div>
-            <div className="flex items-center gap-3 text-sm text-slate-600">
-              <Box size={16} className="text-emerald-500" />
-              Chất lượng Full HD
+          </div>
+
+          <div className="flex-1 flex flex-col">
+            <div className="flex items-end justify-between h-48 gap-2 px-2 mt-4 mb-4">
+              <AnimatePresence mode="wait">
+                <motion.div 
+                  key={timeFilter}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex items-end justify-between w-full h-full gap-3"
+                >
+                  {chartData[timeFilter].map((item, idx) => {
+                    const max = Math.max(...chartData[timeFilter].map(d => d.value));
+                    const height = (item.value / max) * 100;
+                    return (
+                      <div key={idx} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+                        {/* Tooltip */}
+                        <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                          <div className="bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                            {item.value} video
+                          </div>
+                          <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 mx-auto -mt-1" />
+                        </div>
+
+                        <motion.div
+                          initial={{ height: 0 }}
+                          animate={{ height: `${height}%` }}
+                          transition={{ type: 'spring', damping: 20, stiffness: 100, delay: idx * 0.05 }}
+                          className="w-full bg-gradient-to-t from-brand/20 to-brand rounded-t-lg group-hover:to-brand-dark transition-colors relative min-h-[4px]"
+                        />
+                        <span className="text-[10px] text-slate-400 font-bold mt-3 block whitespace-nowrap">
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            <div className="mt-auto pt-6 border-t border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">
+                    <TrendingUp size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tăng trưởng</p>
+                    <p className="text-sm font-bold text-slate-900">+12.5% so với {timeFilter === 'day' ? 'hôm qua' : timeFilter === 'week' ? 'tuần trước' : 'tháng trước'}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

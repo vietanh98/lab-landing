@@ -1360,7 +1360,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
   const [currentMode, setCurrentMode] = useState<AuthMode>(mode);
   const [registerStep, setRegisterStep] = useState<RegisterStep>(1);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
-  const [forgotData, setForgotData] = useState({ email: '', username: '' });
+  const [forgotData, setForgotData] = useState({ phone: '' });
   const [registerData, setRegisterData] = useState({
     phone: '',
     otp: '',
@@ -1424,7 +1424,10 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
 
   const validateForgot = () => {
     const next: Record<string, string> = {};
-    if (!forgotData.email && !forgotData.username) next.forgot = 'Vui lòng nhập email hoặc tên đăng nhập';
+    const normalized = normalizePhone(forgotData.phone);
+    if (!normalized || !phoneRegex.test(normalized)) {
+      next.forgot = 'Số điện thoại không hợp lệ';
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -1568,25 +1571,43 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
 
     try {
       const apiBase = getApiBase();
-      const endpoint =
-        currentMode === 'login'
-          ? `${apiBase}/api/v1/auth/login`
-          : currentMode === 'register'
-            ? `${apiBase}/api/v1/auth/register-by-phone`
-            : `${apiBase}/api/v1/auth/forgot`;
+      let endpoint = '';
+      let body: any = {};
 
-      const phone = normalizePhone(registerData.phone);
+      if (currentMode === 'login') {
+        endpoint = `${apiBase}/api/v1/auth/login`;
+        body = { username: loginData.username, password: loginData.password };
+      } else if (currentMode === 'register') {
+        endpoint = `${apiBase}/api/v1/auth/register-by-phone`;
+        const phone = normalizePhone(registerData.phone);
+        body = {
+          phone,
+          password: registerData.password,
+          verify_token: registerData.verify_token,
+        };
+      } else if (currentMode === 'forgot') {
+        endpoint = `${apiBase}/api/v1/auth/forgot-password`;
+        const phone = normalizePhone(forgotData.phone);
 
-      const body =
-        currentMode === 'login'
-          ? { username: loginData.username, password: loginData.password }
-          : currentMode === 'register'
-            ? {
-              phone,
-              password: registerData.password,
-              verify_token: registerData.verify_token,
-            }
-            : { email: forgotData.email, username: forgotData.username };
+        // Get reCAPTCHA token for forgot password
+        const recaptchaToken = await new Promise<string>((resolve, reject) => {
+          if (typeof grecaptcha === 'undefined') {
+            reject(new Error('Hệ thống bảo vệ reCAPTCHA chưa sẵn sàng. Vui lòng tải lại trang.'));
+            return;
+          }
+          grecaptcha.ready(() => {
+            grecaptcha.execute('6LdVy48sAAAAAARFNw8u9EELmrV_liJTcD-Cr-uY', { action: 'forgot_password' })
+              .then((recaptcha_token: string) => resolve(recaptcha_token))
+              .catch(reject);
+          });
+        });
+
+        body = {
+          phone,
+          recaptcha_token: recaptchaToken,
+          is_mobile: true
+        };
+      }
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -1628,9 +1649,9 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
         } else {
           setStatusMsg({
             type: 'success',
-            text: 'Đã gửi yêu cầu khôi phục mật khẩu. Vui lòng kiểm tra email.'
+            text: 'Đã gửi yêu cầu khôi phục mật khẩu qua Zalo ZNS. Vui lòng kiểm tra điện thoại.'
           });
-          setTimeout(() => setCurrentMode('login'), 1600);
+          setTimeout(() => setCurrentMode('login'), 2000);
         }
       } else {
         setStatusMsg({
@@ -1645,9 +1666,9 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                 : 'Gửi yêu cầu thất bại')
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Auth Error:', error);
-      setStatusMsg({ type: 'error', text: 'Không thể kết nối đến máy chủ.' });
+      setStatusMsg({ type: 'error', text: error?.message || 'Không thể kết nối đến máy chủ.' });
     } finally {
       setIsLoading(false);
     }
@@ -1680,7 +1701,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
               ? 'Đăng nhập để quản lý đơn hàng của bạn'
               : currentMode === 'register'
                 ? 'Hoàn tất đăng ký theo 3 bước'
-                : 'Nhập email hoặc tên đăng nhập để nhận liên kết đặt lại mật khẩu'}
+                : 'Nhập số điện thoại để nhận mã khôi phục mật khẩu qua Zalo ZNS'}
           </p>
         </div>
 
@@ -1765,32 +1786,32 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
           {currentMode === 'forgot' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
                 <input
-                  value={forgotData.email}
+                  value={forgotData.phone}
                   onChange={(e) => {
-                    setForgotData(prev => ({ ...prev, email: e.target.value }));
+                    setForgotData(prev => ({ ...prev, phone: e.target.value }));
                     clearFieldError('forgot');
                   }}
-                  type="email"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all"
-                  placeholder="name@company.com"
+                  type="tel"
+                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.forgot ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                  placeholder="09xx xxx xxx"
                 />
+                {errors.forgot && <p className="text-red-500 text-[10px] mt-1">{errors.forgot}</p>}
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Tên đăng nhập</label>
-                <input
-                  value={forgotData.username}
-                  onChange={(e) => {
-                    setForgotData(prev => ({ ...prev, username: e.target.value }));
-                    clearFieldError('forgot');
+              <div className="mt-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentMode('login');
+                    setStatusMsg(null);
+                    setErrors({});
                   }}
-                  type="text"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all"
-                  placeholder="username"
-                />
+                  className="text-xs text-brand font-bold hover:underline"
+                >
+                  Quay lại đăng nhập
+                </button>
               </div>
-              {errors.forgot && <p className="text-red-500 text-[10px] mt-1">{errors.forgot}</p>}
             </div>
           )}
 
