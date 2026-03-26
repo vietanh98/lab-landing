@@ -1003,7 +1003,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="relative w-full max-w-2xl bg-white rounded-[2.5rem] p-10 shadow-2xl overflow-hidden"
             >
-              <button 
+              <button
                 onClick={() => setStaffModal({ isOpen: false, member: null })}
                 className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 transition-colors"
               >
@@ -1359,8 +1359,15 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
 
   const [currentMode, setCurrentMode] = useState<AuthMode>(mode);
   const [registerStep, setRegisterStep] = useState<RegisterStep>(1);
+  const [forgotStep, setForgotStep] = useState<RegisterStep>(1);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
-  const [forgotData, setForgotData] = useState({ phone: '' });
+  const [forgotData, setForgotData] = useState({
+    phone: '',
+    otp: '',
+    password: '',
+    confirm_password: '',
+    verify_token: ''
+  });
   const [registerData, setRegisterData] = useState({
     phone: '',
     otp: '',
@@ -1386,6 +1393,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     setShowPass(false);
     setShowConfirm(false);
     setRegisterStep(1);
+    setForgotStep(1);
     setResendUntil(null);
     setResendSecondsLeft(0);
     setIsOtpVerified(false);
@@ -1422,12 +1430,27 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     return Object.keys(next).length === 0;
   };
 
-  const validateForgot = () => {
+  const validateForgotStep1 = () => {
     const next: Record<string, string> = {};
     const normalized = normalizePhone(forgotData.phone);
     if (!normalized || !phoneRegex.test(normalized)) {
-      next.forgot = 'Số điện thoại không hợp lệ';
+      next.phone = 'Số điện thoại không hợp lệ';
     }
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const validateForgotStep2 = () => {
+    const next: Record<string, string> = {};
+    if (!forgotData.otp) next.otp = 'Vui lòng nhập mã OTP';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const validateForgotStep3 = () => {
+    const next: Record<string, string> = {};
+    if (!forgotData.password || forgotData.password.length < 6) next.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+    if (forgotData.password !== forgotData.confirm_password) next.confirm_password = 'Mật khẩu xác nhận không khớp';
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -1554,6 +1577,94 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     }
   };
 
+  const sendForgotOtp = async () => {
+    setStatusMsg(null);
+    if (!validateForgotStep1()) return;
+    setIsOtpVerified(false);
+    setIsLoading(true);
+    try {
+      const apiBase = getApiBase();
+      const phone = normalizePhone(forgotData.phone);
+      setForgotData(prev => ({ ...prev, phone }));
+
+      // Get reCAPTCHA token
+      const recaptchaToken = await new Promise<string>((resolve, reject) => {
+        if (typeof grecaptcha === 'undefined') {
+          reject(new Error('Hệ thống bảo vệ reCAPTCHA chưa sẵn sàng. Vui lòng tải lại trang.'));
+          return;
+        }
+        grecaptcha.ready(() => {
+          grecaptcha.execute('6LdVy48sAAAAAARFNw8u9EELmrV_liJTcD-Cr-uY', { action: 'forgot_password' })
+            .then((recaptcha_token: string) => resolve(recaptcha_token))
+            .catch(reject);
+        });
+      });
+
+      // Call /api/v1/auth/forgot-password/send-otp
+      const endpoint = `${apiBase}/api/v1/auth/forgot-password/send-otp`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/plain, */*',
+          'X-Timestamp': Date.now().toString(),
+        },
+        body: JSON.stringify({ phone, recaptcha_token: recaptchaToken }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const ok = isApiOk(res, data);
+      if (!ok) {
+        setStatusMsg({ type: 'error', text: data?.message || 'Gửi yêu cầu không thành công. Vui lòng thử lại.' });
+        return;
+      }
+
+      setResendUntil(Date.now() + 30 * 1000);
+      setStatusMsg({ type: 'success', text: 'Đã gửi mã OTP thành công qua điện thoại.' });
+      setForgotStep(2);
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: e?.message || 'Gửi yêu cầu không thành công. Vui lòng thử lại.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyForgotOtp = async () => {
+    setStatusMsg(null);
+    if (!validateForgotStep2()) return;
+    setIsLoading(true);
+    try {
+      const apiBase = getApiBase();
+      const phone = normalizePhone(forgotData.phone);
+      setForgotData(prev => ({ ...prev, phone }));
+
+      const endpoint = `${apiBase}/api/v1/auth/forgot-password/verify-otp`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/plain, */*',
+          'X-Timestamp': Date.now().toString(),
+        },
+        body: JSON.stringify({ phone, code: forgotData.otp.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const ok = isApiOk(res, data);
+      if (!ok) {
+        setErrors({ otp: data?.message || 'Mã OTP không đúng' });
+        return;
+      }
+      const verifyToken = data?.data?.verify_token || data?.verify_token || '';
+      setForgotData(prev => ({ ...prev, verify_token: verifyToken }));
+      setStatusMsg({ type: 'success', text: 'Xác nhận mã OTP thành công.' });
+      setIsOtpVerified(true);
+      setForgotStep(3);
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: e?.message || 'Không thể xác nhận OTP. Vui lòng thử lại.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMsg(null);
@@ -1564,7 +1675,8 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
     } else if (currentMode === 'login') {
       if (!validateLogin()) return;
     } else {
-      if (!validateForgot()) return;
+      if (forgotStep !== 3) return;
+      if (!validateForgotStep3()) return;
     }
 
     setIsLoading(true);
@@ -1586,26 +1698,12 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
           verify_token: registerData.verify_token,
         };
       } else if (currentMode === 'forgot') {
-        endpoint = `${apiBase}/api/v1/auth/forgot-password`;
-        const phone = normalizePhone(forgotData.phone);
-
-        // Get reCAPTCHA token for forgot password
-        const recaptchaToken = await new Promise<string>((resolve, reject) => {
-          if (typeof grecaptcha === 'undefined') {
-            reject(new Error('Hệ thống bảo vệ reCAPTCHA chưa sẵn sàng. Vui lòng tải lại trang.'));
-            return;
-          }
-          grecaptcha.ready(() => {
-            grecaptcha.execute('6LdVy48sAAAAAARFNw8u9EELmrV_liJTcD-Cr-uY', { action: 'forgot_password' })
-              .then((recaptcha_token: string) => resolve(recaptcha_token))
-              .catch(reject);
-          });
-        });
-
+        endpoint = `${apiBase}/api/v1/auth/forgot-password/reset`;
+        const identifier = normalizePhone(forgotData.phone);
         body = {
-          phone,
-          recaptcha_token: recaptchaToken,
-          is_mobile: true
+          identifier,
+          password: forgotData.password,
+          verify_token: forgotData.verify_token,
         };
       }
 
@@ -1649,9 +1747,12 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
         } else {
           setStatusMsg({
             type: 'success',
-            text: 'Đã gửi yêu cầu khôi phục mật khẩu qua Zalo ZNS. Vui lòng kiểm tra điện thoại.'
+            text: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.'
           });
-          setTimeout(() => setCurrentMode('login'), 2000);
+          setTimeout(() => {
+            setCurrentMode('login');
+            setStatusMsg(null);
+          }, 2000);
         }
       } else {
         setStatusMsg({
@@ -1785,20 +1886,103 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
 
           {currentMode === 'forgot' && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
-                <input
-                  value={forgotData.phone}
-                  onChange={(e) => {
-                    setForgotData(prev => ({ ...prev, phone: e.target.value }));
-                    clearFieldError('forgot');
-                  }}
-                  type="tel"
-                  className={`w-full px-4 py-2.5 rounded-xl border ${errors.forgot ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
-                  placeholder="09xx xxx xxx"
-                />
-                {errors.forgot && <p className="text-red-500 text-[10px] mt-1">{errors.forgot}</p>}
-              </div>
+              {forgotStep === 1 && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
+                  <input
+                    value={forgotData.phone}
+                    onChange={(e) => {
+                      setForgotData(prev => ({ ...prev, phone: e.target.value }));
+                      clearFieldError('forgot');
+                    }}
+                    type="tel"
+                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.forgot ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                    placeholder="09xx xxx xxx"
+                  />
+                  {errors.forgot && <p className="text-red-500 text-[10px] mt-1">{errors.forgot}</p>}
+                </div>
+              )}
+
+              {forgotStep === 2 && (
+                <div>
+                  <div className="flex items-center justify-between gap-4">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Mã OTP</label>
+                    <button
+                      type="button"
+                      onClick={sendForgotOtp}
+                      disabled={isLoading || !!resendUntil}
+                      className="text-xs font-bold text-brand hover:underline disabled:text-slate-400 disabled:no-underline"
+                    >
+                      {resendUntil ? `Gửi lại (${resendSecondsLeft}s)` : 'Gửi lại'}
+                    </button>
+                  </div>
+                  <input
+                    value={forgotData.otp}
+                    onChange={(e) => {
+                      setForgotData(prev => ({ ...prev, otp: e.target.value }));
+                      clearFieldError('otp');
+                    }}
+                    type="text"
+                    className={`w-full px-4 py-2.5 rounded-xl border ${errors.otp ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                    placeholder="Nhập mã OTP"
+                  />
+                  {errors.otp && <p className="text-red-500 text-[10px] mt-1">{errors.otp}</p>}
+                </div>
+              )}
+
+              {forgotStep === 3 && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu mới</label>
+                    <div className="relative">
+                      <input
+                        value={forgotData.password}
+                        onChange={(e) => {
+                          setForgotData(prev => ({ ...prev, password: e.target.value }));
+                          clearFieldError('password');
+                        }}
+                        type={showPass ? 'text' : 'password'}
+                        className={`w-full px-4 pr-10 py-2.5 rounded-xl border ${errors.password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPass(p => !p)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                        aria-label="toggle-password"
+                      >
+                        {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {errors.password && <p className="text-red-500 text-[10px] mt-1">{errors.password}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Xác nhận mật khẩu mới</label>
+                    <div className="relative">
+                      <input
+                        value={forgotData.confirm_password}
+                        onChange={(e) => {
+                          setForgotData(prev => ({ ...prev, confirm_password: e.target.value }));
+                          clearFieldError('confirm_password');
+                        }}
+                        type={showConfirm ? 'text' : 'password'}
+                        className={`w-full px-4 pr-10 py-2.5 rounded-xl border ${errors.confirm_password ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirm(p => !p)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                        aria-label="toggle-confirm-password"
+                      >
+                        {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {errors.confirm_password && <p className="text-red-500 text-[10px] mt-1">{errors.confirm_password}</p>}
+                  </div>
+                </>
+              )}
+              
               <div className="mt-2 text-right">
                 <button
                   type="button"
@@ -1814,6 +1998,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
               </div>
             </div>
           )}
+
 
           {currentMode === 'register' && (
             <div className="space-y-4">
@@ -1932,6 +2117,20 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
             </button>
           )}
 
+          {currentMode === 'forgot' && forgotStep > 1 && forgotStep < 3 && (
+            <button
+              type="button"
+              onClick={() => {
+                setStatusMsg(null);
+                setErrors({});
+                setForgotStep(s => (s > 1 ? ((s - 1) as RegisterStep) : s));
+              }}
+              className="w-full py-3 text-slate-600 font-bold rounded-xl bg-slate-100 hover:bg-slate-200 transition-all"
+            >
+              Quay lại
+            </button>
+          )}
+
           {currentMode === 'register' ? (
             registerStep === 1 ? (
               <button
@@ -1943,7 +2142,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  'Gửi mã OTP qua Zalo ZNS'
+                  'Gửi mã OTP'
                 )}
               </button>
             ) : registerStep === 2 ? (
@@ -1971,7 +2170,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                 )}
               </button>
             )
-          ) : (
+          ) : currentMode === 'login' ? (
             <button
               disabled={isLoading}
               className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
@@ -1979,9 +2178,48 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                currentMode === 'login' ? 'Đăng nhập' : 'Gửi yêu cầu khôi phục'
+                'Đăng nhập'
               )}
             </button>
+          ) : (
+            forgotStep === 1 ? (
+              <button
+                type="button"
+                onClick={sendForgotOtp}
+                disabled={isLoading}
+                className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Gửi mã khôi phục'
+                )}
+              </button>
+            ) : forgotStep === 2 ? (
+              <button
+                type="button"
+                onClick={verifyForgotOtp}
+                disabled={isLoading}
+                className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Xác nhận mã'
+                )}
+              </button>
+            ) : (
+              <button
+                disabled={isLoading}
+                className="w-full py-3.5 bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-brand/20 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Xác nhận đổi mật khẩu'
+                )}
+              </button>
+            )
           )}
         </form>
 
@@ -1995,6 +2233,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                 setStatusMsg(null);
                 setErrors({});
                 setRegisterStep(1);
+                setForgotStep(1);
                 setResendUntil(null);
                 setResendSecondsLeft(0);
                 setIsOtpVerified(false);
