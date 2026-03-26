@@ -216,9 +216,9 @@ const Profile: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden min-h-[600px] flex flex-col md:flex-row">
+      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row">
         {/* Sidebar Tabs */}
-        <div className="md:w-64 border-r border-slate-100 bg-slate-50/50 p-6 space-y-2">
+        <div className="md:w-64 border-r border-slate-100 bg-slate-50/50 p-6 space-y-2 rounded-l-[2.5rem]">
           <button
             onClick={() => setActiveTab('info')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -383,32 +383,7 @@ const Profile: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Roles & Permissions section */}
-                  {user?.roles && user.roles.length > 0 && (
-                    <div className="pt-10 border-t border-slate-100">
-                      <div className="flex items-center gap-2 mb-6">
-                        <Shield className="text-brand" size={20} />
-                        <h3 className="text-lg font-bold text-slate-900">Vai trò & Quyền hạn</h3>
-                      </div>
-                      <div className="space-y-6">
-                        {user.roles.map((role: any) => (
-                          <div key={role.id} className="bg-slate-50/50 border border-slate-100 rounded-3xl p-6">
-                            <div className="flex flex-wrap items-center gap-3 mb-4">
-                              <span className="px-4 py-1.5 bg-brand text-white text-[10px] font-black rounded-full uppercase tracking-widest">{role.name}</span>
-                              <span className="text-sm text-slate-500">{role.description}</span>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {role.permissions?.map((p: any) => (
-                                <span key={p.id} className="px-3 py-1 bg-white border border-slate-200 text-slate-500 text-[10px] rounded-lg hover:border-brand/30 hover:text-brand transition-colors cursor-help" title={p.description}>
-                                  {p.name}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+
 
                   {/* Subscriptions section */}
                   {user?.dashboard?.subscriptions && user.dashboard.subscriptions.length > 0 && (
