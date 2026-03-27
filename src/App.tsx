@@ -177,7 +177,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
             store: String(v.store_name ?? v.store ?? ''),
             time: v.recorded_at ?? v.created_at ?? '',
             size: sizeStr,
-            url: v.file_path ? `https://media.labbox.vn/${v.file_path.replace(/^\//, '')}` : '',
+            url: v.file_url || (v.file_path ? `https://media.labbox.vn/${v.file_path.replace(/^\//, '')}` : ''),
           };
         });
         setVideos(mapped);

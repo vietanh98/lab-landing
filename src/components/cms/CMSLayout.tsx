@@ -10,7 +10,9 @@ import {
   Search, 
   Bell, 
   Plus,
-  ArrowLeft
+  ArrowLeft,
+  ChevronLeft,
+  Menu
 } from 'lucide-react';
 
 interface CMSLayoutProps {
@@ -30,6 +32,7 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
   const [planName, setPlanName] = useState<string>('—');
   const [avatarText, setAvatarText] = useState<string>('LB');
   const [profileOpen, setProfileOpen] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const sidebarItems = [
     { id: 'dashboard', path: '/cms', icon: <LayoutDashboard size={20} />, label: 'Tổng quan' },
     { id: 'stores-videos', path: '/cms/stores', icon: <Store size={20} />, label: 'Quản lý cửa hàng và video' },
@@ -125,36 +128,46 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
-        <div className="p-6 flex items-center gap-2">
-          <img src="/logo.png" alt="LabBox Logo" className="w-8 h-8 object-contain rounded-lg" />
-          <span className="text-xl font-display font-bold text-slate-900">LabBox</span>
+      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-white border-r border-slate-200 flex flex-col transition-all duration-300 relative`}>
+        <div className={`p-6 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} transition-all`}>
+          <div className="flex items-center gap-2 overflow-hidden">
+            <img src="/logo.png" alt="LabBox Logo" className="w-8 h-8 object-contain rounded-lg flex-shrink-0" />
+            {!isSidebarCollapsed && <span className="text-xl font-display font-bold text-slate-900 truncate">LabBox</span>}
+          </div>
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className={`absolute -right-3 top-7 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-brand hover:border-brand shadow-sm z-10 transition-all ${isSidebarCollapsed ? 'rotate-180' : ''}`}
+          >
+            <ChevronLeft size={14} />
+          </button>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
           {sidebarItems.map((item) => (
             <Link
               key={item.id}
               to={item.path}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-bold transition-all ${
                 currentPath === item.path 
                   ? 'bg-brand/10 text-brand' 
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
               }`}
+              title={isSidebarCollapsed ? item.label : ''}
             >
-              {item.icon}
-              {item.label}
+              <div className="flex-shrink-0">{item.icon}</div>
+              {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
             </Link>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
+        <div className="p-3 border-t border-slate-100">
           <button 
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-all"
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-all`}
+            title={isSidebarCollapsed ? 'Đăng xuất' : ''}
           >
-            <LogOut size={20} />
-            Đăng xuất
+            <div className="flex-shrink-0"><LogOut size={20} /></div>
+            {!isSidebarCollapsed && <span className="truncate">Đăng xuất</span>}
           </button>
         </div>
       </aside>
@@ -226,7 +239,7 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 flex flex-col min-h-0 p-8 overflow-y-auto">
+        <div className="flex-1 flex flex-col min-h-0 p-8 overflow-y-auto no-scrollbar">
           {currentPath !== '/cms/profile' && (
             <div className="flex-shrink-0 flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
@@ -269,7 +282,7 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
             </div>
           )}
 
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex-1 min-h-0">
             <Outlet />
           </div>
         </div>

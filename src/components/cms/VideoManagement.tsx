@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Eye, ArrowUpRight, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, Trash2, ChevronLeft, ChevronRight, Copy, Check, X, ExternalLink } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 import CustomSelect from '../ui/CustomSelect';
+import Toggle from '../ui/Toggle';
 
 interface VideoManagementProps {
   videos: any[];
@@ -22,6 +24,9 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
   const [searchTitle, setSearchTitle] = useState('');
   const [filterStore, setFilterStore] = useState('');
   const [filterQr1, setFilterQr1] = useState('');
+  const [showPublicModal, setShowPublicModal] = useState(false);
+  const [publicUrl, setPublicUrl] = useState('');
+  const [copied, setCopied] = useState(false);
   const hasFetchedRef = useRef(false);
   const lastQueryRef = useRef<string>('');
 
@@ -60,7 +65,7 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
           // Map raw API objects to include full video URL
           const mapped = list.map((v: any) => ({
             ...v,
-            url: v.file_path ? `https://media.labbox.vn/${v.file_path.replace(/^\//, '')}` : '',
+            url: v.file_url || (v.file_path ? `https://media.labbox.vn/${v.file_path.replace(/^\//, '')}` : ''),
             orderId: String(v.qr_code_1 ?? v.qr_code_2 ?? v.order_id ?? v.title ?? '')
           }));
           setItems(mapped);
@@ -123,8 +128,48 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
     String(a.store_name || '').localeCompare(String(b.store_name || ''))
   );
 
+  const handleTogglePublish = async (id: number, isPublished: boolean) => {
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const endpoint = `${apiBase}/api/v1/video/publish`;
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id, is_published: isPublished }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && (data.status === true || data.success === true)) {
+        // Update local state
+        setItems(prev => prev.map(v => v.id === id ? { ...v, is_published: isPublished } : v));
+        
+        // Show public link popup if publishing
+        if (isPublished) {
+          // Priority: response public_url -> response data info -> constructed if we have enough info
+          const url = data.public_url || data.data?.public_url || data.data?.file_url || '';
+          if (url) {
+            setPublicUrl(url);
+            setShowPublicModal(true);
+          }
+        }
+      } else {
+        alert(data.message || 'Không thể cập nhật trạng thái video');
+      }
+    } catch (err) {
+      console.error('Error toggling publish:', err);
+      alert('Không thể kết nối đến máy chủ');
+    }
+  };
+
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden h-[76vh] flex flex-col">
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex-1 h-full min-h-0 flex flex-col">
       <div className="p-4 flex flex-col gap-3 border-b border-slate-100">
         <div className="flex items-center justify-between">
           <div className="text-sm font-bold text-slate-900">
@@ -242,9 +287,12 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                     >
                       <Eye size={18} />
                     </button>
-                    <button className="p-2 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-all" title="Tải về">
-                      <ArrowUpRight size={18} />
-                    </button>
+                    <div className="px-2" title={vid.is_published ? "Hủy công khai" : "Công khai video"}>
+                      <Toggle 
+                        checked={!!vid.is_published} 
+                        onChange={(checked) => handleTogglePublish(vid.id, checked)}
+                      />
+                    </div>
                     <button 
                       onClick={() => onDeleteVideo(vid.id)}
                       className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Xóa video"
@@ -276,6 +324,84 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
           <ChevronRight size={18} />
         </button>
       </div>
+      <AnimatePresence>
+        {showPublicModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPublicModal(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
+                      <ExternalLink size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">Video đã được công khai</h3>
+                      <p className="text-sm text-slate-500">Người dùng có thể xem video qua liên kết này</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowPublicModal(false)}
+                    className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 p-1 pl-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                  <span className="text-sm font-medium text-slate-600 truncate flex-1">
+                    {publicUrl}
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(publicUrl);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all font-bold text-sm ${
+                      copied 
+                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' 
+                        : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                    }`}
+                  >
+                    {copied ? (
+                      <>
+                        <Check size={16} />
+                        Đã sao chép
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={16} />
+                        Sao chép
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="mt-8 flex justify-end">
+                  <button
+                    onClick={() => setShowPublicModal(false)}
+                    className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200/50"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

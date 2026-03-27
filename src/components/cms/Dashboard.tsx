@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Video, Store, Users, Box, TrendingUp, Play, Eye, Trash2, ChevronRight, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  TooltipProps
+} from 'recharts';
 
 interface DashboardProps {
   videos: any[];
@@ -83,20 +93,33 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
   ];
   const maxValue = Math.max(...currentData.map(d => Math.max(d.new, d.returned))) || 1;
 
-  const generatePath = (key: 'new' | 'returned') => {
-    if (currentData.length < 2) return '';
-    const points = currentData.map((d, i) => {
-      const x = (i / (currentData.length - 1)) * 100;
-      const y = 100 - (d[key] / maxValue) * 100;
-      return `${x},${y}`;
-    });
-    return `M ${points.join(' L ')}`;
+
+  const CustomChartTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-slate-900 text-white p-3 rounded-2xl shadow-xl border border-slate-700/50 backdrop-blur-md">
+          <p className="text-[10px] font-bold border-b border-slate-700 pb-1.5 mb-1.5 opacity-60 uppercase tracking-wider">{label}</p>
+          <div className="space-y-2">
+            {payload.map((entry, index) => (
+              <div key={index} className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                  <span className="text-[9px] font-medium text-slate-300">{entry.name}:</span>
+                </div>
+                <span className="text-[10px] font-black">{entry.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 min-w-0">
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-5">
         {[
           { label: 'Tổng video', value: String(totalVideos), icon: <Video className="text-brand" />, trend: '', color: 'bg-brand/10' },
           { label: 'Cửa hàng', value: String(totalStores), icon: <Store className="text-emerald-600" />, trend: '', color: 'bg-emerald-100' },
@@ -104,21 +127,21 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
           { label: 'Dung lượng', value: totalSizeStr, icon: <Box className="text-rose-600" />, trend: '', color: 'bg-rose-100' },
           { label: 'Dung lượng trọn đời', value: toHumanSize(metrics?.total_lifetime_bytes), icon: <History className="text-indigo-600" />, trend: '', color: 'bg-indigo-100' },
         ].map((stat, i) => (
-          <div key={i} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`w-12 h-12 ${stat.color} rounded-2xl flex items-center justify-center`}>
-                {stat.icon}
+          <div key={i} className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm min-w-0">
+            <div className="flex items-center justify-between mb-3">
+              <div className={`w-10 h-10 ${stat.color} rounded-2xl flex items-center justify-center flex-shrink-0`}>
+                {React.cloneElement(stat.icon as any, { size: 20 })}
               </div>
               <span className="text-xs font-bold text-slate-400"></span>
             </div>
-            <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</h3>
+            <p className="text-xs font-medium text-slate-500 truncate">{stat.label}</p>
+            <h3 className="text-lg xl:text-xl font-bold text-slate-900 mt-1 truncate">{stat.value}</h3>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 min-w-0">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 min-w-0 overflow-hidden">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-slate-900">Hoạt động gần đây</h3>
             <button className="text-brand text-sm font-bold">Xem tất cả</button>
@@ -154,8 +177,8 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
           </div>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8 flex flex-col h-full min-h-[450px]">
-          <div className="flex items-center justify-between mb-8">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 overflow-hidden flex flex-col h-full min-w-0">
+          <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-slate-900">Thống kê quay video</h3>
             <div className="flex bg-slate-100 p-1 rounded-xl">
               {(['day', 'month', 'year'] as const).map((t) => (
@@ -174,104 +197,71 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col">
-            <div className="h-48 mt-8 mb-4 relative">
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="w-full border-t border-slate-100 h-0" />
-                ))}
-              </div>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={timeFilter}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="w-full h-full relative"
+          <div className="flex-1 flex flex-col pt-4">
+            <div className="h-56 mt-4 mb-2 relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={currentData}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                 >
-                  <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
-                    {/* New Orders Line */}
-                    <motion.path
-                      d={generatePath('new')}
-                      fill="none"
-                      stroke="#4F46E5"
-                      strokeWidth="2"
-                      initial={{ pathLength: 0 }}
-                      animate={{ pathLength: 1 }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                    />
-                    {/* Returned Orders Line */}
-                    <motion.path
-                      d={generatePath('returned')}
-                      fill="none"
-                      stroke="#EF4444"
-                      strokeWidth="2"
-                      initial={{ pathLength: 0 }}
-                      animate={{ pathLength: 1 }}
-                      transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-                    />
-
-                    {/* Points and Tooltips */}
-                    {currentData.map((d, i) => {
-                      const x = (i / (currentData.length - 1)) * 100;
-                      const yNew = 100 - (d.new / maxValue) * 100;
-                      const yReturned = 100 - (d.returned / maxValue) * 100;
-                      
-                      return (
-                        <g key={i}>
-                          <circle cx={x} cy={yNew} r="1.5" fill="#4F46E5" className="cursor-pointer" />
-                          <circle cx={x} cy={yReturned} r="1.5" fill="#EF4444" className="cursor-pointer" />
-                        </g>
-                      );
-                    })}
-                  </svg>
-
-                  {/* Labels and Hover areas */}
-                  <div className="absolute inset-0 flex justify-between">
-                    {currentData.map((d, i) => (
-                      <div key={i} className="group relative flex-1 flex flex-col justify-end">
-                        <div className="absolute inset-y-0 w-px bg-slate-100 opacity-0 group-hover:opacity-100 left-1/2 -translate-x-1/2 pointer-events-none" />
-                        
-                        {/* Tooltip */}
-                        <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 w-32">
-                          <div className="bg-slate-900 text-white p-2 rounded-xl shadow-xl space-y-1">
-                            <p className="text-[10px] font-bold border-bottom border-slate-700 pb-1 mb-1">{d.label}</p>
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                <span className="text-[9px]">Mới:</span>
-                              </span>
-                              <span className="text-[9px] font-bold">{d.new}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                <span className="text-[9px]">Hoàn:</span>
-                              </span>
-                              <span className="text-[9px] font-bold">{d.returned}</span>
-                            </div>
-                          </div>
-                          <div className="w-2 h-2 bg-slate-900 rotate-45 mx-auto -mt-1" />
-                        </div>
-
-                        <span className="text-[10px] text-slate-400 font-bold mt-3 block text-center absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                          {d.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              </AnimatePresence>
+                  <defs>
+                    <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#F27D26" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#F27D26" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorReturned" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#FB7185" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#FB7185" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#F1F5F9" strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="label" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fill: '#94A3B8', fontWeight: 600 }}
+                    dy={10}
+                    interval={timeFilter === 'day' ? 3 : timeFilter === 'month' ? 4 : 2}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fill: '#94A3B8', fontWeight: 600 }}
+                  />
+                  <Tooltip content={<CustomChartTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="new"
+                    name="Đơn mới"
+                    stroke="#F27D26"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#colorNew)"
+                    animationDuration={1500}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="returned"
+                    name="Đơn hoàn"
+                    stroke="#FB7185"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorReturned)"
+                    animationDuration={1500}
+                    animationDelay={200}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-slate-100">
+            <div className="mt-4 pt-4 border-t border-slate-50">
               <div className="flex items-center gap-6 mb-6">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-brand" />
+                  <div className="w-3 h-3 rounded-full bg-[#F27D26]" />
                   <span className="text-xs font-bold text-slate-600">Đơn mới</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-rose-500" />
+                  <div className="w-3 h-3 rounded-full bg-[#FB7185]" />
                   <span className="text-xs font-bold text-slate-600">Đơn hoàn</span>
                 </div>
               </div>
