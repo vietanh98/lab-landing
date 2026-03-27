@@ -128,7 +128,10 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         }
         const dash = data?.data?.dashboard;
         if (dash && typeof dash === 'object') {
-          setDashboardMetrics(dash);
+          setDashboardMetrics({
+            ...dash,
+            total_lifetime_bytes: data?.data?.total_lifetime_bytes
+          });
         }
       } catch { }
     };
@@ -174,7 +177,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
             store: String(v.store_name ?? v.store ?? ''),
             time: v.recorded_at ?? v.created_at ?? '',
             size: sizeStr,
-            url: v.file_path ?? '',
+            url: v.file_path ? `https://media.labbox.vn/${v.file_path.replace(/^\//, '')}` : '',
           };
         });
         setVideos(mapped);
@@ -300,6 +303,8 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [staffDeleteConfirm, setStaffDeleteConfirm] = useState<{ isOpen: boolean, userId: string | null, userName: string }>({ isOpen: false, userId: null, userName: '' });
   const [isDeletingStaff, setIsDeletingStaff] = useState(false);
+  const [videoDeleteConfirm, setVideoDeleteConfirm] = useState<{ isOpen: boolean, videoId: string | null, videoTitle: string }>({ isOpen: false, videoId: null, videoTitle: '' });
+  const [isDeletingVideo, setIsDeletingVideo] = useState(false);
 
   const pricingPlans = [
     { name: "Cơ bản", price: "Miễn phí", period: "Mãi mãi", features: ["Lưu trữ 50 video/tháng", "Chất lượng HD 720p", "Tìm kiếm theo mã đơn"] },
@@ -309,8 +314,39 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
 
   // Handlers
   const handleDeleteVideo = (id: string) => {
-    if (confirm('Bạn có chắc chắn muốn xóa video này?')) {
-      setVideos(videos.filter(v => v.id !== id));
+    const vid = videos.find(v => v.id === id);
+    setVideoDeleteConfirm({
+      isOpen: true,
+      videoId: id,
+      videoTitle: vid?.title || vid?.id || 'video'
+    });
+  };
+
+  const confirmDeleteVideo = async () => {
+    if (!videoDeleteConfirm.videoId) return;
+    setIsDeletingVideo(true);
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const endpoint = `${apiBase}/api/v1/video/${videoDeleteConfirm.videoId}`;
+      const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
+      const token = localStorage.getItem('token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      headers['X-Timestamp'] = Date.now().toString();
+
+      const res = await fetch(endpoint, { method: 'DELETE', headers });
+      const data = await res.json().catch(() => ({}));
+      const ok = res.ok && (data?.status === true || data?.status_code === 0 || data?.success === true);
+      if (ok) {
+        setVideos(videos.filter(v => v.id !== videoDeleteConfirm.videoId));
+        showToast('Xóa video thành công', 'success');
+      } else {
+        showToast(data?.message || 'Không thể xóa video này', 'error');
+      }
+    } catch (err) {
+      showToast('Lỗi kết nối máy chủ', 'error');
+    } finally {
+      setIsDeletingVideo(false);
+      setVideoDeleteConfirm({ isOpen: false, videoId: null, videoTitle: '' });
     }
   };
 
@@ -707,7 +743,9 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               stores={stores}
               staff={staff}
               metrics={dashboardMetrics}
-              onViewVideo={(vid) => setVideoModal({ isOpen: true, video: vid })}
+              onViewVideo={(vid) => {
+                setVideoModal({ isOpen: true, video: vid });
+              }}
               onDeleteVideo={handleDeleteVideo}
               onUpgrade={() => {
                 setShowUpgrade(true);
@@ -718,7 +756,9 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           <Route path="videos" element={
             <VideoManagement
               videos={videos}
-              onViewVideo={(vid) => setVideoModal({ isOpen: true, video: vid })}
+              onViewVideo={(vid) => {
+                setVideoModal({ isOpen: true, video: vid });
+              }}
               onDeleteVideo={handleDeleteVideo}
             />
           } />
@@ -840,6 +880,9 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                   autoPlay
                   className="w-full h-full"
                 />
+              </div>
+              <div className="px-6 py-2 bg-slate-100 text-[10px] text-slate-500 font-mono truncate">
+                Link: <a href={videoModal.video?.url} target="_blank" className="text-brand hover:underline">{videoModal.video?.url}</a>
               </div>
               <div className="p-6 bg-slate-50 flex items-center justify-between">
                 <div className="text-sm text-slate-500">
@@ -1162,7 +1205,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-sm bg-white rounded-2xl p-8 shadow-2xl"
+              className="relative w-full max-w-sm bg-white rounded-[2.5rem] p-8 shadow-2xl"
             >
               <div className="flex justify-center mb-4">
                 <div className="w-14 h-14 rounded-full bg-rose-100 flex items-center justify-center">
@@ -1210,7 +1253,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-sm bg-white rounded-2xl p-8 shadow-2xl"
+              className="relative w-full max-w-sm bg-white rounded-[2.5rem] p-8 shadow-2xl"
             >
               <div className="flex justify-center mb-4">
                 <div className="w-14 h-14 rounded-full bg-rose-100 flex items-center justify-center">
@@ -1236,6 +1279,54 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                   className="flex-1 py-3 font-bold text-white bg-rose-500 rounded-xl hover:bg-rose-600 transition-colors disabled:opacity-70"
                 >
                   {isDeletingStaff ? 'Xóa...' : 'Xóa'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Video Confirmation Modal */}
+      <AnimatePresence>
+        {videoDeleteConfirm.isOpen && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setVideoDeleteConfirm({ isOpen: false, videoId: null, videoTitle: '' })}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white rounded-[2.5rem] p-8 shadow-2xl"
+            >
+              <div className="flex justify-center mb-4">
+                <div className="w-14 h-14 rounded-full bg-rose-100 flex items-center justify-center">
+                  <Trash2 size={28} className="text-rose-600" />
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">
+                Xóa video?
+              </h3>
+              <p className="text-slate-600 text-center mb-6 text-sm">
+                Bạn chắc chắn muốn xóa video <strong>{videoDeleteConfirm.videoTitle}</strong>? Hành động này không thể hoàn tác.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setVideoDeleteConfirm({ isOpen: false, videoId: null, videoTitle: '' })}
+                  className="flex-1 py-3 font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={confirmDeleteVideo}
+                  disabled={isDeletingVideo}
+                  className="flex-1 py-3 font-bold text-white bg-rose-500 rounded-xl hover:bg-rose-600 transition-colors disabled:opacity-70"
+                >
+                  {isDeletingVideo ? 'Đang xóa...' : 'Đồng ý'}
                 </button>
               </div>
             </motion.div>
@@ -1982,7 +2073,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                   </div>
                 </>
               )}
-              
+
               <div className="mt-2 text-right">
                 <button
                   type="button"

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Video, Store, Users, Box, TrendingUp, Play, Eye, Trash2, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Video, Store, Users, Box, TrendingUp, Play, Eye, Trash2, ChevronRight, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface DashboardProps {
@@ -11,6 +11,7 @@ interface DashboardProps {
     total_videos?: number;
     total_size_bytes?: number;
     total_employees?: number;
+    total_lifetime_bytes?: number;
     subscriptions?: any;
   } | null;
   onViewVideo: (video: any) => void;
@@ -23,6 +24,9 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
 
   const toHumanSize = (bytes?: number) => {
     if (!bytes || typeof bytes !== 'number' || isNaN(bytes)) return '0 GB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
     const gb = bytes / (1024 * 1024 * 1024);
     return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
   };
@@ -32,34 +36,51 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
   const totalEmployees = typeof metrics?.total_employees === 'number' ? metrics!.total_employees : staff.length;
   const totalSizeStr = toHumanSize(metrics?.total_size_bytes);
 
-  const chartData = {
-    day: [
-      { label: '08:00', new: 12, returned: 2 },
-      { label: '10:00', new: 34, returned: 5 },
-      { label: '12:00', new: 45, returned: 8 },
-      { label: '14:00', new: 28, returned: 4 },
-      { label: '16:00', new: 56, returned: 10 },
-      { label: '18:00', new: 42, returned: 7 },
-      { label: '20:00', new: 15, returned: 3 },
-    ],
-    month: [
-      { label: '01/03', new: 45, returned: 5 },
-      { label: '08/03', new: 52, returned: 8 },
-      { label: '15/03', new: 48, returned: 6 },
-      { label: '22/03', new: 61, returned: 12 },
-      { label: '29/03', new: 55, returned: 9 },
-    ],
-    year: [
-      { label: 'T1', new: 850, returned: 120 },
-      { label: 'T2', new: 940, returned: 150 },
-      { label: 'T3', new: 1100, returned: 180 },
-      { label: 'T4', new: 890, returned: 140 },
-      { label: 'T5', new: 1050, returned: 160 },
-      { label: 'T6', new: 1200, returned: 210 },
-    ]
-  };
+  const [apiChartData, setApiChartData] = useState<any[]>([]);
+  const [growthValue, setGrowthValue] = useState(0);
+  const [loadingStats, setLoadingStats] = useState(false);
 
-  const currentData = chartData[timeFilter];
+  useEffect(() => {
+    const fetchStats = async () => {
+      setLoadingStats(true);
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/video/stats?type=${timeFilter}`;
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        
+        const res = await fetch(endpoint, { headers });
+        const data = await res.json();
+        
+        if (data?.status && data?.data) {
+          const stats = data.data;
+          const transformed = (stats.new_orders || []).map((d: any, i: number) => ({
+            label: d.label,
+            new: d.count,
+            returned: stats.return_orders?.[i]?.count || 0
+          }));
+          setApiChartData(transformed);
+          setGrowthValue(stats.growth || 0);
+        }
+      } catch (err) {
+        console.error('Failed to fetch stats', err);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+    fetchStats();
+  }, [timeFilter]);
+
+  const currentData = apiChartData.length > 0 ? apiChartData : [
+    { label: '08:00', new: 0, returned: 0 },
+    { label: '10:00', new: 0, returned: 0 },
+    { label: '12:00', new: 0, returned: 0 },
+    { label: '14:00', new: 0, returned: 0 },
+    { label: '16:00', new: 0, returned: 0 },
+    { label: '18:00', new: 0, returned: 0 },
+    { label: '20:00', new: 0, returned: 0 },
+  ];
   const maxValue = Math.max(...currentData.map(d => Math.max(d.new, d.returned))) || 1;
 
   const generatePath = (key: 'new' | 'returned') => {
@@ -75,12 +96,13 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
   return (
     <div className="space-y-8">
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
         {[
           { label: 'Tổng video', value: String(totalVideos), icon: <Video className="text-brand" />, trend: '', color: 'bg-brand/10' },
           { label: 'Cửa hàng', value: String(totalStores), icon: <Store className="text-emerald-600" />, trend: '', color: 'bg-emerald-100' },
           { label: 'Nhân viên', value: String(totalEmployees), icon: <Users className="text-amber-600" />, trend: '', color: 'bg-amber-100' },
           { label: 'Dung lượng', value: totalSizeStr, icon: <Box className="text-rose-600" />, trend: '', color: 'bg-rose-100' },
+          { label: 'Dung lượng trọn đời', value: toHumanSize(metrics?.total_lifetime_bytes), icon: <History className="text-indigo-600" />, trend: '', color: 'bg-indigo-100' },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -260,7 +282,7 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
                   </div>
                   <div>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tăng trưởng</p>
-                    <p className="text-sm font-bold text-slate-900">+12.5% so với {timeFilter === 'day' ? 'hôm qua' : timeFilter === 'month' ? 'tháng trước' : 'năm trước'}</p>
+                    <p className="text-sm font-bold text-slate-900">{growthValue >= 0 ? '+' : ''}{growthValue}% so với {timeFilter === 'day' ? 'hôm qua' : timeFilter === 'month' ? 'tháng trước' : 'năm trước'}</p>
                   </div>
                 </div>
               </div>

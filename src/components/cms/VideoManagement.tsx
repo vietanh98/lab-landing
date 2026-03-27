@@ -56,7 +56,14 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
             [];
           const list =
             Array.isArray(candidate) ? candidate : Array.isArray(candidate?.data) ? candidate.data : [];
-          setItems(list);
+          
+          // Map raw API objects to include full video URL
+          const mapped = list.map((v: any) => ({
+            ...v,
+            url: v.file_path ? `https://media.labbox.vn/${v.file_path.replace(/^\//, '')}` : '',
+            orderId: String(v.qr_code_1 ?? v.qr_code_2 ?? v.order_id ?? v.title ?? '')
+          }));
+          setItems(mapped);
 
           const total =
             Number(data?.data?.total ?? data?.meta?.total ?? data?.pagination?.total ?? 0);
@@ -187,7 +194,7 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
               <th className="px-6 py-4">Thiết bị</th>
               <th className="px-6 py-4">Tiêu đề</th>
               <th className="px-6 py-4">Mã vận đơn</th>
-              <th className="px-6 py-4">Dung lượng</th>
+              <th className="px-6 py-4 min-w-[120px]">Dung lượng</th>
               <th className="px-6 py-4">Thời lượng</th>
               <th className="px-6 py-4">Thời gian quay</th>
               <th className="px-6 py-4">Kết thúc</th>
@@ -216,11 +223,8 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                     {String(vid.qr_code_1 ?? vid.qr_code_2 ?? '') || '—'}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm text-slate-500">
-                  <div className="flex items-center gap-2">
-                    <span>{typeof vid.size_bytes === 'number' ? vid.size_bytes.toLocaleString('vi-VN') : String(vid.size_bytes ?? '')}</span>
-                    <span className="px-2 py-1 rounded-lg bg-brand/10 text-brand text-xs font-bold">{toMB(vid.size_bytes)}</span>
-                  </div>
+                <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                  <span className="px-2 py-1 rounded-lg bg-brand/10 text-brand text-xs font-bold">{toMB(vid.size_bytes)}</span>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500">{String(vid.duration_seconds ?? '')}</td>
                 <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.recorded_at)}</td>
@@ -233,6 +237,8 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <button 
+                      onClick={() => onViewVideo(vid)}
+                      className="p-2 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-all" title="Xem video"
                     >
                       <Eye size={18} />
                     </button>
