@@ -15,6 +15,8 @@ import {
   Menu
 } from 'lucide-react';
 
+import NotFound from '../ui/NotFound';
+
 interface CMSLayoutProps {
   onLogout: () => void;
   activeTab: string;
@@ -33,6 +35,9 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
   const [avatarText, setAvatarText] = useState<string>('LB');
   const [profileOpen, setProfileOpen] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [isAuthLoaded, setIsAuthLoaded] = useState(false);
+
   const sidebarItems = [
     { id: 'dashboard', path: '/cms', icon: <LayoutDashboard size={20} />, label: 'Tổng quan' },
     { id: 'stores-videos', path: '/cms/stores', icon: <Store size={20} />, label: 'Quản lý cửa hàng và video' },
@@ -40,7 +45,27 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
     { id: 'subscription', path: '/cms/subscription', icon: <PackageCheck size={20} />, label: 'Quản lý gói đã đăng ký' },
   ];
 
-  const activeItem = sidebarItems.find(item => item.path === currentPath) || sidebarItems[0];
+  const filteredSidebarItems = sidebarItems.filter(item => {
+    if (!isAuthLoaded) return true; // Show by default until loaded to avoid layout jumps
+    if (item.id === 'stores-videos') {
+      return permissions.includes('store.list') || permissions.includes('stores.read') || 
+             permissions.includes('video.list') || permissions.includes('videos.read');
+    }
+    if (item.id === 'staff') {
+      return permissions.includes('user.list') || permissions.includes('users.read') || permissions.includes('user.view');
+    }
+    if (item.id === 'subscription') {
+      return permissions.includes('user.subscription.create') || permissions.includes('user.subscription.update');
+    }
+    return true; // Dashboard always visible
+  });
+
+  const activeItem = filteredSidebarItems.find(item => item.path === currentPath) || filteredSidebarItems[0];
+  
+  // Kiểm tra nếu đường dẫn hiện tại nằm trong sidebarItems nhưng lại bị loại khỏi filteredSidebarItems (do không đủ quyền)
+  const isRestricted = isAuthLoaded && 
+                       sidebarItems.some(item => item.path === currentPath) && 
+                       !filteredSidebarItems.some(item => item.path === currentPath);
 
   useEffect(() => {
     const setFromLocal = () => {
@@ -67,6 +92,15 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
           .join('')
           .toUpperCase();
         setAvatarText(initials || 'LB');
+
+        const perms = new Set<string>();
+        rolesArr.forEach((r: any) => {
+          if (Array.isArray(r.permissions)) {
+            r.permissions.forEach((p: any) => perms.add(p.name));
+          }
+        });
+        setPermissions(Array.from(perms));
+        setIsAuthLoaded(true);
       } catch {}
     };
     const fetchMe = async () => {
@@ -79,6 +113,12 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
         headers['X-Timestamp'] = Date.now().toString();
         const res = await fetch(endpoint, { headers });
         const data = await res.json().catch(() => ({}));
+        
+        if (res.status === 401 || data?.status_code === 401 || data?.message?.toLowerCase()?.includes('unauthenticated')) {
+          onLogout();
+          return;
+        }
+
         const ok = res.ok && (data?.status === true || data?.status_code === 0 || data?.success === true);
         if (!ok) {
           setFromLocal();
@@ -113,6 +153,15 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
           .join('')
           .toUpperCase();
         setAvatarText(initials || 'LB');
+        
+        const perms = new Set<string>();
+        rolesArr.forEach((r: any) => {
+          if (Array.isArray(r.permissions)) {
+            r.permissions.forEach((p: any) => perms.add(p.name));
+          }
+        });
+        setPermissions(Array.from(perms));
+        setIsAuthLoaded(true);
       } catch {
         setFromLocal();
       }
@@ -143,7 +192,7 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
-          {sidebarItems.map((item) => (
+          {filteredSidebarItems.map((item) => (
             <Link
               key={item.id}
               to={item.path}
@@ -254,13 +303,13 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
                 )}
                 <div>
                   <h1 className="text-2xl font-display font-bold text-slate-900">
-                    {activeItem.label}
+                    {activeItem?.label}
                   </h1>
                   <p className="text-slate-500 text-sm mt-1">Quản lý hệ thống LabBox của bạn</p>
                 </div>
               </div>
               <div className="flex gap-3">
-                {activeItem.id === 'stores-videos' && (
+                {activeItem?.id === 'stores-videos' && (!isAuthLoaded || permissions.includes('store.create') || permissions.includes('stores.write')) && (
                   <button 
                     onClick={onAddStore}
                     className="bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-brand/20 flex items-center gap-2 transition-all active:scale-95"
@@ -269,7 +318,7 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
                     Thêm cửa hàng mới
                   </button>
                 )}
-                {activeItem.id === 'staff' && (
+                {activeItem?.id === 'staff' && (!isAuthLoaded || permissions.includes('user.create') || permissions.includes('users.write')) && (
                   <button 
                     onClick={onAddStaff}
                     className="bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-brand/20 flex items-center gap-2 transition-all active:scale-95"
@@ -282,8 +331,8 @@ const CMSLayout: React.FC<CMSLayoutProps> = ({ onLogout, onAddStore, onAddStaff 
             </div>
           )}
 
-          <div className="flex-1 min-h-0">
-            <Outlet />
+          <div className="flex-1 min-h-0 h-full">
+            {isRestricted ? <NotFound /> : <Outlet />}
           </div>
         </div>
       </main>

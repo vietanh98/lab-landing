@@ -24,6 +24,9 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
   const [searchTitle, setSearchTitle] = useState('');
   const [filterStore, setFilterStore] = useState('');
   const [filterQr1, setFilterQr1] = useState('');
+  const [filterFinishedOnly, setFilterFinishedOnly] = useState<boolean | null>(null);
+  const [filterOrderType, setFilterOrderType] = useState('');
+  const [filterIsPublished, setFilterIsPublished] = useState<boolean | null>(null);
   const [showPublicModal, setShowPublicModal] = useState(false);
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
@@ -36,7 +39,13 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
       setError(null);
       try {
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-        const endpoint = `${apiBase}/api/v1/video/list?page=${page}&per_page=${perPage}${storeId ? `&store_id=${storeId}` : ''}`;
+        let query = `?page=${page}&per_page=${perPage}`;
+        if (storeId) query += `&store_id=${storeId}`;
+        if (filterFinishedOnly !== null) query += `&finished_only=${filterFinishedOnly}`;
+        if (filterOrderType) query += `&order_type=${filterOrderType}`;
+        if (filterIsPublished !== null) query += `&is_published=${filterIsPublished}`;
+
+        const endpoint = `${apiBase}/api/v1/video/list${query}`;
         const headers: Record<string, string> = {
           Accept: 'application/json, text/plain, */*',
         };
@@ -61,7 +70,7 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
             [];
           const list =
             Array.isArray(candidate) ? candidate : Array.isArray(candidate?.data) ? candidate.data : [];
-          
+
           // Map raw API objects to include full video URL
           const mapped = list.map((v: any) => ({
             ...v,
@@ -75,9 +84,9 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
           const lastPage =
             Number(
               data?.data?.last_page ??
-                data?.meta?.last_page ??
-                data?.pagination?.total_pages ??
-                0
+              data?.meta?.last_page ??
+              data?.pagination?.total_pages ??
+              0
             );
           if (lastPage > 0) {
             setTotalPages(lastPage);
@@ -101,7 +110,7 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
     hasFetchedRef.current = true;
     lastQueryRef.current = key;
     fetchVideos();
-  }, [page, perPage, storeId]);
+  }, [page, perPage, storeId, filterFinishedOnly, filterOrderType, filterIsPublished]);
 
   const stores = Array.from(new Set(items.map((v) => v.store_name).filter(Boolean)));
   const mbToBytes = (mb: number) => Math.round(mb * 1024 * 1024);
@@ -149,7 +158,7 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
       if (res.ok && (data.status === true || data.success === true)) {
         // Update local state
         setItems(prev => prev.map(v => v.id === id ? { ...v, is_published: isPublished } : v));
-        
+
         // Show public link popup if publishing
         if (isPublished) {
           // Priority: response public_url -> response data info -> constructed if we have enough info
@@ -224,6 +233,51 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
             className="px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none"
             placeholder="QR Code 1"
           />
+          <CustomSelect
+            name="filterFinishedOnly"
+            label=""
+            hideLabel
+            defaultValue={filterFinishedOnly === null ? '' : String(filterFinishedOnly)}
+            placeholder="Kết thúc (tất cả)"
+            options={[
+              { id: 'true', name: 'Đã kết thúc' },
+              { id: 'false', name: 'Chưa kết thúc' }
+            ]}
+            onChange={(val) => {
+              setFilterFinishedOnly(val === 'true' ? true : val === 'false' ? false : null);
+              setPage(1);
+            }}
+          />
+          <CustomSelect
+            name="filterIsPublished"
+            label=""
+            hideLabel
+            defaultValue={filterIsPublished === null ? '' : String(filterIsPublished)}
+            placeholder="Public"
+            options={[
+              { id: 'true', name: 'Có' },
+              { id: 'false', name: 'Không' }
+            ]}
+            onChange={(val) => {
+              setFilterIsPublished(val === 'true' ? true : val === 'false' ? false : null);
+              setPage(1);
+            }}
+          />
+          <CustomSelect
+            name="filterOrderType"
+            label=""
+            hideLabel
+            defaultValue={filterOrderType}
+            placeholder="Loại đơn (tất cả)"
+            options={[
+              { id: '0', name: 'Đơn mới' },
+              { id: '1', name: 'Đơn hoàn' }
+            ]}
+            onChange={(val) => {
+              setFilterOrderType(String(val));
+              setPage(1);
+            }}
+          />
         </div>
       </div>
       {error && (
@@ -232,78 +286,78 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
       <div className="overflow-x-auto flex-1 min-h-0">
         <div className="h-full overflow-y-auto">
           <table className="w-full text-left">
-          <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm shadow-sm">
-            <tr className="text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
-              <th className="px-6 py-4">Mã video</th>
-              <th className="px-6 py-4">Cửa hàng</th>
-              <th className="px-6 py-4">Thiết bị</th>
-              <th className="px-6 py-4">Tiêu đề</th>
-              <th className="px-6 py-4">Mã vận đơn</th>
-              <th className="px-6 py-4 min-w-[120px]">Dung lượng</th>
-              <th className="px-6 py-4">Thời lượng</th>
-              <th className="px-6 py-4">Thời gian quay</th>
-              <th className="px-6 py-4">Kết thúc</th>
-              <th className="px-6 py-4">Tự xóa</th>
-              <th className="px-6 py-4">Số ngày giữ</th>
-              <th className="px-6 py-4">Tạo lúc</th>
-              <th className="px-6 py-4 text-right">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading && (
-              <tr>
-                <td colSpan={13} className="px-6 py-6 text-center text-slate-500 text-sm">Đang tải dữ liệu...</td>
+            <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm shadow-sm">
+              <tr className="text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                <th className="px-6 py-4">Mã video</th>
+                <th className="px-6 py-4">Cửa hàng</th>
+                <th className="px-6 py-4">Thiết bị</th>
+                <th className="px-6 py-4">Tiêu đề</th>
+                <th className="px-6 py-4">Mã vận đơn</th>
+                <th className="px-6 py-4 min-w-[120px]">Dung lượng</th>
+                <th className="px-6 py-4">Thời lượng</th>
+                <th className="px-6 py-4">Thời gian quay</th>
+                <th className="px-6 py-4">Kết thúc</th>
+                <th className="px-6 py-4">Tự xóa</th>
+                <th className="px-6 py-4">Số ngày giữ</th>
+                <th className="px-6 py-4">Tạo lúc</th>
+                <th className="px-6 py-4 text-right">Thao tác</th>
               </tr>
-            )}
-            {!loading && sortedVideos.map((vid: any, i: number) => (
-              <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                <td className="px-6 py-4 text-sm text-slate-900 font-bold">{String(vid.id)}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">{String(vid.store_name ?? '')}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">{String(vid.device_id ?? '')}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">
-                  <span className="inline-block max-w-48 truncate align-middle">{String(vid.title ?? '')}</span>
-                </td>
-                <td className="px-6 py-4 text-sm">
-                  <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700">
-                    {String(vid.qr_code_1 ?? vid.qr_code_2 ?? '') || '—'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
-                  <span className="px-2 py-1 rounded-lg bg-brand/10 text-brand text-xs font-bold">{toMB(vid.size_bytes)}</span>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-500">{String(vid.duration_seconds ?? '')}</td>
-                <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.recorded_at)}</td>
-                <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.finished_at)}</td>
-                <td className="px-6 py-4 text-sm">
-                  <span className={`px-2 py-1 rounded-lg text-xs font-bold ${vid.is_auto_delete ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'}`}>{vid.is_auto_delete ? 'Có' : 'Không'}</span>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-500">{String(vid.keep_days ?? '')}</td>
-                <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.created_at)}</td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button 
-                      onClick={() => onViewVideo(vid)}
-                      className="p-2 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-all" title="Xem video"
-                    >
-                      <Eye size={18} />
-                    </button>
-                    <div className="px-2" title={vid.is_published ? "Hủy công khai" : "Công khai video"}>
-                      <Toggle 
-                        checked={!!vid.is_published} 
-                        onChange={(checked) => handleTogglePublish(vid.id, checked)}
-                      />
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading && (
+                <tr>
+                  <td colSpan={13} className="px-6 py-6 text-center text-slate-500 text-sm">Đang tải dữ liệu...</td>
+                </tr>
+              )}
+              {!loading && sortedVideos.map((vid: any, i: number) => (
+                <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
+                  <td className="px-6 py-4 text-sm text-slate-900 font-bold">{String(vid.id)}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{String(vid.store_name ?? '')}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{String(vid.device_id ?? '')}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    <span className="inline-block max-w-48 truncate align-middle">{String(vid.title ?? '')}</span>
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700">
+                      {String(vid.qr_code_1 ?? vid.qr_code_2 ?? '') || '—'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                    <span className="px-2 py-1 rounded-lg bg-brand/10 text-brand text-xs font-bold">{toMB(vid.size_bytes)}</span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{String(vid.duration_seconds ?? '')}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.recorded_at)}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.finished_at)}</td>
+                  <td className="px-6 py-4 text-sm">
+                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${vid.is_auto_delete ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'}`}>{vid.is_auto_delete ? 'Có' : 'Không'}</span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{String(vid.keep_days ?? '')}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.created_at)}</td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => onViewVideo(vid)}
+                        className="p-2 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-all" title="Xem video"
+                      >
+                        <Eye size={18} />
+                      </button>
+                      <div className="px-2" title={vid.is_published ? "Hủy công khai" : "Công khai video"}>
+                        <Toggle
+                          checked={!!vid.is_published}
+                          onChange={(checked) => handleTogglePublish(vid.id, checked)}
+                        />
+                      </div>
+                      <button
+                        onClick={() => onDeleteVideo(vid.id)}
+                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Xóa video"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
-                    <button 
-                      onClick={() => onDeleteVideo(vid.id)}
-                      className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Xóa video"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       </div>
@@ -351,7 +405,7 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                       <p className="text-sm text-slate-500">Người dùng có thể xem video qua liên kết này</p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setShowPublicModal(false)}
                     className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400"
                   >
@@ -369,11 +423,10 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                       setCopied(true);
                       setTimeout(() => setCopied(false), 2000);
                     }}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all font-bold text-sm ${
-                      copied 
-                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' 
-                        : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all font-bold text-sm ${copied
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+                      : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                      }`}
                   >
                     {copied ? (
                       <>

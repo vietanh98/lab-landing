@@ -58,6 +58,7 @@ import StaffManagement from './components/cms/StaffManagement';
 import SubscriptionManagement from './components/cms/SubscriptionManagement';
 import Profile from './components/cms/Profile';
 import CustomSelect from './components/ui/CustomSelect';
+import NotFound from './components/ui/NotFound';
 
 // --- Components ---
 declare var grecaptcha: any;
@@ -99,6 +100,8 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
   const storesLoadedRef = React.useRef(false);
   const [roles, setRoles] = useState<any[]>([]);
   const rolesLoadedRef = React.useRef(false);
+  const [staffRefresh, setStaffRefresh] = useState(0);
+  const [totalStaffCount, setTotalStaffCount] = useState(0);
   const [me, setMe] = useState<any>(null);
 
   // Load current user via auth/me
@@ -255,6 +258,9 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           status: u.status || (u.is_active === false ? 'Offline' : 'Online'),
         }));
         setStaff(mapped);
+        if (data?.data?.total_items || data?.data?.total || data?.meta?.total) {
+          setTotalStaffCount(Number(data?.data?.total_items ?? data?.data?.total ?? data?.meta?.total));
+        }
       } catch (err) {
         console.error('Error fetching staff', err);
         showToast('Không thể tải danh sách nhân viên', 'error');
@@ -421,6 +427,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         showToast('Xóa nhân viên không thành công', 'error');
       } else {
         setStaff(prev => prev.filter(s => String(s.id) !== String(staffDeleteConfirm.userId)));
+        setStaffRefresh(r => r + 1);
         showToast('Xóa nhân viên thành công', 'success');
       }
     } catch (err) {
@@ -673,6 +680,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
               String(s.id) === String(userId) ? { ...s, ...updatedUser } : s
             )
           );
+          setStaffRefresh(r => r + 1);
           showToast('Cập nhật nhân viên thành công', 'success');
         }
       } else {
@@ -711,6 +719,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           }
 
           showToast('Thêm nhân viên thành công', 'success');
+          setStaffRefresh(r => r + 1);
           // Reload page to get latest staff list from server
           setTimeout(() => {
             window.location.reload();
@@ -775,6 +784,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
           <Route path="staff" element={
             <StaffManagement
               staff={staff}
+              refreshKey={staffRefresh}
               onEditStaff={(m) => setStaffModal({ isOpen: true, member: m })}
               onDeleteStaff={handleDeleteStaff}
             />
@@ -792,6 +802,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
             />
           } />
           <Route path="profile" element={<Profile />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
 
@@ -2348,6 +2359,8 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
   const [slideIndex, setSlideIndex] = React.useState(0);
   const slideRef = React.useRef<HTMLDivElement>(null);
   const [pricingPlans, setPricingPlans] = React.useState<Array<{ id: number; name: string; price?: number }>>([]);
+  const [pricingSlideIndex, setPricingSlideIndex] = React.useState(0);
+  const pricingSlideRef = React.useRef<HTMLDivElement>(null);
   const [pricingError, setPricingError] = React.useState<string | null>(null);
   const [pricingLoading, setPricingLoading] = React.useState(false);
   React.useEffect(() => {
@@ -2363,6 +2376,25 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
     const w = el.clientWidth;
     el.scrollTo({ left: w * slideIndex, behavior: 'smooth' });
   }, [slideIndex]);
+
+  // Pricing Auto-play
+  React.useEffect(() => {
+    if (pricingPlans.length <= 3) return;
+    const t = setInterval(() => {
+      setPricingSlideIndex(prev => (prev + 1) % pricingPlans.length);
+    }, 6000);
+    return () => clearInterval(t);
+  }, [pricingPlans.length]);
+
+  React.useEffect(() => {
+    const el = pricingSlideRef.current;
+    if (!el) return;
+    const item = el.children[pricingSlideIndex] as HTMLElement;
+    if (item) {
+      const scrollPos = item.offsetLeft - (el.clientWidth / 2) + (item.clientWidth / 2);
+      el.scrollTo({ left: scrollPos, behavior: 'smooth' });
+    }
+  }, [pricingSlideIndex]);
   React.useEffect(() => {
     const fetchPlans = async () => {
       setPricingLoading(true);
@@ -2577,90 +2609,138 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
             <p className="text-slate-600 max-w-2xl mx-auto">Chọn gói phù hợp với quy mô kinh doanh của bạn. Nâng cấp hoặc hạ cấp bất cứ lúc nào.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {(pricingPlans.length
+          {(() => {
+            const pricingData = pricingPlans.length
               ? pricingPlans.map((p, idx) => ({
-                name: p.name,
-                price: typeof p.price === 'number' && p.price > 0 ? `${p.price.toLocaleString('vi-VN')}đ` : 'Miễn phí',
-                period: "mỗi tháng",
-                desc: "Gói dịch vụ LabBox",
-                features: ["Quản lý video", "Tìm kiếm thông minh", "Hỗ trợ kỹ thuật"],
-                button: "Đăng ký",
-                highlight: idx === 1
-              }))
+                  name: p.name,
+                  price: typeof p.price === 'number' && p.price > 0 ? `${p.price.toLocaleString('vi-VN')}đ` : 'Miễn phí',
+                  period: "mỗi tháng",
+                  desc: "Gói dịch vụ LabBox",
+                  features: ["Quản lý video", "Tìm kiếm thông minh", "Hỗ trợ kỹ thuật"],
+                  button: "Đăng ký",
+                  highlight: idx === 1
+                }))
               : [
-                {
-                  name: "Cơ bản",
-                  price: "Miễn phí",
-                  period: "Mãi mãi",
-                  desc: "Dành cho các shop mới bắt đầu kinh doanh.",
-                  features: ["Lưu trữ 50 video/tháng", "Chất lượng HD 720p", "Tìm kiếm theo mã đơn", "Hỗ trợ qua email"],
-                  button: "Bắt đầu ngay",
-                  highlight: false
-                },
-                {
-                  name: "Chuyên nghiệp",
-                  price: "199.000đ",
-                  period: "mỗi tháng",
-                  desc: "Dành cho các shop có lượng đơn ổn định.",
-                  features: ["Lưu trữ 500 video/tháng", "Chất lượng Full HD 1080p", "Truy xuất nhanh 24/7", "Hỗ trợ ưu tiên 24/7", "Báo cáo thống kê"],
-                  button: "Dùng thử 7 ngày",
-                  highlight: true
-                },
-                {
-                  name: "Doanh nghiệp",
-                  price: "499.000đ",
-                  period: "mỗi tháng",
-                  desc: "Giải pháp tối ưu cho kho hàng lớn.",
-                  features: ["Không giới hạn video", "Chất lượng 4K Ultra HD", "API tích hợp hệ thống", "Quản lý nhiều kho hàng", "Account Manager riêng"],
-                  button: "Liên hệ tư vấn",
-                  highlight: false
-                }
-              ]
-            ).map((plan, i) => (
-              <motion.div
-                key={i}
-                whileHover={{ y: -10 }}
-                className={`p-8 rounded-[2.5rem] border transition-all relative ${plan.highlight
-                  ? 'bg-white border-brand shadow-2xl shadow-brand/10 z-10'
-                  : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
-                  }`}
-              >
-                {plan.highlight && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                    Phổ biến nhất
-                  </div>
-                )}
-                <div className="mb-8">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
-                  <div className="flex items-baseline gap-1 mb-4">
-                    <span className="text-4xl font-display font-bold text-slate-900">{plan.price}</span>
-                    <span className="text-slate-500 text-sm">/{plan.period}</span>
-                  </div>
-                  <p className="text-slate-600 text-sm leading-relaxed">{plan.desc}</p>
+                  {
+                    name: "Cơ bản",
+                    price: "Miễn phí",
+                    period: "Mãi mãi",
+                    desc: "Dành cho các shop mới bắt đầu kinh doanh.",
+                    features: ["Lưu trữ 50 video/tháng", "Chất lượng HD 720p", "Tìm kiếm theo mã đơn", "Hỗ trợ qua email"],
+                    button: "Bắt đầu ngay",
+                    highlight: false
+                  },
+                  {
+                    name: "Chuyên nghiệp",
+                    price: "199.000đ",
+                    period: "mỗi tháng",
+                    desc: "Dành cho các shop có lượng đơn ổn định.",
+                    features: ["Lưu trữ 500 video/tháng", "Chất lượng Full HD 1080p", "Truy xuất nhanh 24/7", "Hỗ trợ ưu tiên 24/7", "Báo cáo thống kê"],
+                    button: "Dùng thử 7 ngày",
+                    highlight: true
+                  },
+                  {
+                    name: "Doanh nghiệp",
+                    price: "499.000đ",
+                    period: "mỗi tháng",
+                    desc: "Giải pháp tối ưu cho kho hàng lớn.",
+                    features: ["Không giới hạn video", "Chất lượng 4K Ultra HD", "API tích hợp hệ thống", "Quản lý nhiều kho hàng", "Account Manager riêng"],
+                    button: "Liên hệ tư vấn",
+                    highlight: false
+                  }
+                ];
+
+            const isSlider = pricingData.length > 3;
+            let gridColsClass = "md:grid-cols-3";
+            if (pricingData.length === 4) gridColsClass = "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
+            else if (pricingData.length === 2) gridColsClass = "grid-cols-1 sm:grid-cols-2 max-w-4xl mx-auto";
+            else if (pricingData.length === 1) gridColsClass = "grid-cols-1 max-w-md mx-auto";
+            else gridColsClass = "grid-cols-1 sm:grid-cols-2 md:grid-cols-3";
+
+            return (
+              <div className="relative group/pricing">
+                <div 
+                  ref={pricingSlideRef}
+                  className={isSlider ? "flex overflow-x-auto gap-6 pb-12 pt-4 px-4 snap-x snap-mandatory no-scrollbar hide-scroll" : `grid ${gridColsClass} gap-8`}
+                  style={isSlider ? { scrollbarWidth: 'none', msOverflowStyle: 'none' } : {}}
+                >
+                  {isSlider && <style>{`.hide-scroll::-webkit-scrollbar { display: none; }`}</style>}
+                {pricingData.map((plan, i) => (
+                  <motion.div
+                    key={i}
+                    whileHover={{ y: -10 }}
+                    className={`p-8 rounded-[2.5rem] border transition-all relative ${plan.highlight
+                      ? 'bg-white border-brand shadow-2xl shadow-brand/10 z-10'
+                      : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
+                      } ${isSlider ? 'snap-center shrink-0 w-[85vw] sm:w-[320px] max-w-[340px] hide-scroll' : ''}`}
+                  >
+                    {plan.highlight && (
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                        Phổ biến nhất
+                      </div>
+                    )}
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
+                      <div className="flex items-baseline gap-1 mb-4">
+                        <span className="text-4xl font-display font-bold text-slate-900">{plan.price}</span>
+                        <span className="text-slate-500 text-sm">/{plan.period}</span>
+                      </div>
+                      <p className="text-slate-600 text-sm leading-relaxed">{plan.desc}</p>
+                    </div>
+
+                    <ul className="space-y-4 mb-10">
+                      {plan.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-center gap-3 text-sm text-slate-600">
+                          <CheckCircle2 size={18} className="text-brand flex-shrink-0" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button
+                      onClick={() => openAuth('register')}
+                      className={`w-full py-4 rounded-2xl font-bold transition-all ${plan.highlight
+                        ? 'bg-brand hover:bg-brand-dark text-white shadow-lg shadow-brand/20'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
+                        }`}
+                    >
+                      {plan.button}
+                    </button>
+                  </motion.div>
+                ))}
                 </div>
 
-                <ul className="space-y-4 mb-10">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-center gap-3 text-sm text-slate-600">
-                      <CheckCircle2 size={18} className="text-brand flex-shrink-0" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
+                {isSlider && (
+                  <>
+                    <button
+                      onClick={() => setPricingSlideIndex(i => (i - 1 + pricingData.length) % pricingData.length)}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 p-3 rounded-full bg-white shadow-xl border border-slate-100 text-slate-400 hover:text-brand hover:scale-110 transition-all z-20 opacity-0 group-hover/pricing:opacity-100 group-hover/pricing:translate-x-0"
+                      aria-label="Previous Plan"
+                    >
+                      <ChevronLeft size={24} />
+                    </button>
+                    <button
+                      onClick={() => setPricingSlideIndex(i => (i + 1) % pricingData.length)}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 p-3 rounded-full bg-white shadow-xl border border-slate-100 text-slate-400 hover:text-brand hover:scale-110 transition-all z-20 opacity-0 group-hover/pricing:opacity-100 group-hover/pricing:translate-x-0"
+                      aria-label="Next Plan"
+                    >
+                      <ChevronRight size={24} />
+                    </button>
 
-                <button
-                  onClick={() => openAuth('register')}
-                  className={`w-full py-4 rounded-2xl font-bold transition-all ${plan.highlight
-                    ? 'bg-brand hover:bg-brand-dark text-white shadow-lg shadow-brand/20'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
-                    }`}
-                >
-                  {plan.button}
-                </button>
-              </motion.div>
-            ))}
-          </div>
+                    <div className="flex justify-center gap-2 mt-4">
+                      {pricingData.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setPricingSlideIndex(i)}
+                          className={`w-2 h-2 rounded-full transition-all ${i === pricingSlideIndex ? 'w-8 bg-brand' : 'bg-slate-300'}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </section>
 

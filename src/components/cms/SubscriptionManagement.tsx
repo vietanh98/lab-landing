@@ -47,6 +47,34 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
 
+  const handleCancelPayment = async () => {
+    if (orderId) {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/payment/cancel`;
+        const token = localStorage.getItem('token');
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        await fetch(endpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ order_id: orderId })
+        });
+      } catch (err) {
+        console.error('Lỗi khi hủy thanh toán:', err);
+      }
+    }
+    setSelectedPlan(null);
+    setOrderId(null);
+    setQrUrl(null);
+    setTimeLeft(0);
+  };
+
   const handleSelectPlan = async (plan: SubscriptionPlan) => {
     setToastError(null);
     setInitLoadingId(plan.id);
@@ -370,42 +398,59 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
             ) : subscriptions.length === 0 ? (
               <div className="col-span-3 py-12 text-center text-slate-500">Không có gói nào</div>
             ) : (
-              subscriptions.map((plan) => (
-                <div key={plan.id} className="p-8 rounded-[2.5rem] border border-slate-200 bg-white flex flex-col transition-all hover:border-brand hover:shadow-lg">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
-                  <div className="flex items-baseline gap-1 mb-2">
-                    <span className="text-3xl font-display font-bold text-slate-900">{(plan.price).toLocaleString('vi-VN')}đ</span>
-                    <span className="text-slate-500 text-xs">/tháng</span>
+              subscriptions.map((plan) => {
+                const isCurrentPlan = currentSubscriptions?.some(sub => sub.plan_id === plan.id && sub.status === 'active');
+                return (
+                  <div key={plan.id} className={`p-8 rounded-[2.5rem] border flex flex-col transition-all relative overflow-hidden ${isCurrentPlan ? 'border-brand/30 bg-brand/5 shadow-md' : 'border-slate-200 bg-white hover:border-brand hover:shadow-lg'}`}>
+                    {isCurrentPlan && (
+                      <div className="absolute top-0 right-0 bg-brand text-white text-[10px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl">
+                        Đang sử dụng
+                      </div>
+                    )}
+                    <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
+                    <div className="flex items-baseline gap-1 mb-2">
+                      <span className="text-3xl font-display font-bold text-slate-900">{(plan.price).toLocaleString('vi-VN')}đ</span>
+                      <span className="text-slate-500 text-xs">/tháng</span>
+                    </div>
+                    <p className="text-sm text-slate-500 mb-6">Created: {new Date(plan.created_at).toLocaleDateString('vi-VN')}</p>
+                    <ul className="space-y-4 mb-8 flex-1">
+                      <li className="flex items-center gap-3 text-sm text-slate-600">
+                        <CheckCircle2 size={16} className="text-brand" />
+                        {plan.max_stores} cửa hàng
+                      </li>
+                      <li className="flex items-center gap-3 text-sm text-slate-600">
+                        <CheckCircle2 size={16} className="text-brand" />
+                        {plan.max_storage_gb} GB lưu trữ
+                      </li>
+                      <li className="flex items-center gap-3 text-sm text-slate-600">
+                        <CheckCircle2 size={16} className="text-brand" />
+                        {plan.max_devices} thiết bị
+                      </li>
+                    </ul>
+                    <button
+                      onClick={() => handleSelectPlan(plan)}
+                      disabled={initLoadingId === plan.id || isCurrentPlan}
+                      className={`w-full py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed ${
+                        isCurrentPlan 
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 opacity-100 disabled:opacity-100'
+                          : 'bg-brand text-white hover:bg-brand-dark disabled:opacity-70'
+                      }`}
+                    >
+                      {initLoadingId === plan.id ? (
+                        <>
+                          <div className={`w-5 h-5 border-2 rounded-full animate-spin ${isCurrentPlan ? 'border-emerald-600/30 border-t-emerald-600' : 'border-white/30 border-t-white'}`}></div>
+                          Đang tạo mã...
+                        </>
+                      ) : isCurrentPlan ? (
+                        <>
+                          <CheckCircle2 size={18} />
+                          Đang sử dụng
+                        </>
+                      ) : 'Chọn gói'}
+                    </button>
                   </div>
-                  <p className="text-sm text-slate-500 mb-6">Created: {new Date(plan.created_at).toLocaleDateString('vi-VN')}</p>
-                  <ul className="space-y-4 mb-8 flex-1">
-                    <li className="flex items-center gap-3 text-sm text-slate-600">
-                      <CheckCircle2 size={16} className="text-brand" />
-                      {plan.max_stores} cửa hàng
-                    </li>
-                    <li className="flex items-center gap-3 text-sm text-slate-600">
-                      <CheckCircle2 size={16} className="text-brand" />
-                      {plan.max_storage_gb} GB lưu trữ
-                    </li>
-                    <li className="flex items-center gap-3 text-sm text-slate-600">
-                      <CheckCircle2 size={16} className="text-brand" />
-                      {plan.max_devices} thiết bị
-                    </li>
-                  </ul>
-                  <button
-                    onClick={() => handleSelectPlan(plan)}
-                    disabled={initLoadingId === plan.id}
-                    className="w-full py-4 rounded-2xl font-bold transition-all bg-brand text-white hover:bg-brand-dark flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {initLoadingId === plan.id ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        Đang tạo mã...
-                      </>
-                    ) : 'Chọn gói'}
-                  </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -419,7 +464,7 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelectedPlan(null)}
+              onClick={handleCancelPayment}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
             />
             <motion.div
@@ -519,7 +564,7 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
                   {/* Actions */}
                   <div className="flex gap-4 p-1">
                     <button
-                      onClick={() => setSelectedPlan(null)}
+                      onClick={handleCancelPayment}
                       className="px-6 py-3.5 font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors min-w-[140px]"
                     >
                       Hủy thao tác
