@@ -1,0 +1,10 @@
+services:
+  lab-landing:
+    build: .
+    container_name: lab-landing-container
+    ports:
+      - "4173:4173"
+    restart: always
+    # Nếu bạn cần truyền biến môi trường từ file .env:
+    env_file:
+      - .env
