@@ -17,9 +17,11 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     // if navigate identity changes and causing update loops.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const token = localStorage.getItem('token');
+    const refreshToken = localStorage.getItem('refresh_token');
 
-    if (!token) {
-      // Nếu không có token, điều hướng về trang chủ
+    if (!token && !refreshToken) {
+      // Nếu không có cả token và refresh_token, điều hướng về trang chủ
+      localStorage.removeItem('isLoggedIn');
       navigate('/', { replace: true });
       return;
     }

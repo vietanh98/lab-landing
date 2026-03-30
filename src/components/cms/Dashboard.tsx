@@ -49,6 +49,48 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
   const [apiChartData, setApiChartData] = useState<any[]>([]);
   const [growthValue, setGrowthValue] = useState(0);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [recentVideos, setRecentVideos] = useState<any[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
+
+  useEffect(() => {
+    const fetchRecentVideos = async () => {
+      setLoadingRecent(true);
+      try {
+        const userInfoStr = localStorage.getItem('user_info');
+        if (!userInfoStr) return;
+        const userInfo = JSON.parse(userInfoStr);
+        const userId = userInfo?.id || userInfo?.user_id;
+        if (!userId) return;
+
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/users/${userId}/videos/today`;
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(endpoint, { headers });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && (data?.status === true || data?.success === true)) {
+          const candidate = data?.data?.data ?? data?.data ?? data?.videos ?? [];
+          const list = Array.isArray(candidate) ? candidate : [];
+          
+          const mapped = list.map((v: any) => ({
+            ...v,
+            url: v.file_url || (v.file_path ? `https://media.labbox.vn/${v.file_path.replace(/^\//, '')}` : ''),
+            orderId: String(v.qr_code_1 ?? v.qr_code_2 ?? v.order_id ?? v.title ?? ''),
+            store: v.store_name || '',
+            time: v.recorded_at ? new Date(v.recorded_at).toLocaleString('vi-VN') : (v.created_at ? new Date(v.created_at).toLocaleString('vi-VN') : '')
+          }));
+          setRecentVideos(mapped);
+        }
+      } catch (err) {
+        console.error('Failed to fetch recent videos', err);
+      } finally {
+        setLoadingRecent(false);
+      }
+    };
+    fetchRecentVideos();
+  }, []);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -147,15 +189,22 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
             <button className="text-brand text-sm font-bold">Xem tất cả</button>
           </div>
           <div className="space-y-6">
-            {videos.slice(0, 4).map((vid, i) => (
+            {loadingRecent ? (
+              <p className="text-sm text-slate-500 text-center py-4">Đang tải...</p>
+            ) : recentVideos.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-4">Chưa có video nào hôm nay</p>
+            ) : recentVideos.slice(0, 4).map((vid, i) => (
               <div key={i} className="flex items-center justify-between group">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-brand/10 group-hover:text-brand transition-colors">
+                  <button 
+                    onClick={() => onViewVideo(vid)}
+                    className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-brand/10 group-hover:text-brand transition-colors"
+                  >
                     <Play size={20} fill="currentColor" />
-                  </div>
+                  </button>
                   <div>
-                    <p className="text-sm font-bold text-slate-900">Đã quay video đơn {vid.orderId}</p>
-                    <p className="text-xs text-slate-500">{vid.store} • {vid.time}</p>
+                    <p className="text-sm font-bold text-slate-900 line-clamp-1">Đã quay video đơn {vid.orderId || 'Không xác định'}</p>
+                    <p className="text-xs text-slate-500">{vid.store || 'Không có cửa hàng'} • {vid.time || ''}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

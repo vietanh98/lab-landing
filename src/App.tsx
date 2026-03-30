@@ -1828,7 +1828,9 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
             text: 'Đăng nhập thành công! Đang vào hệ thống...'
           });
           const token = data?.data?.access_token || data?.access_token || data?.token;
+          const refreshToken = data?.data?.refresh_token || data?.refresh_token;
           if (token) localStorage.setItem('token', token);
+          if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
           localStorage.setItem('user_info', JSON.stringify(data.data || data || {}));
           localStorage.setItem('isLoggedIn', 'true');
 
@@ -1839,7 +1841,9 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
         } else if (currentMode === 'register') {
           setStatusMsg({ type: 'success', text: 'Đăng ký thành công! Đang vào hệ thống...' });
           const token = data?.data?.access_token || data?.access_token || data?.token;
+          const refreshToken = data?.data?.refresh_token || data?.refresh_token;
           if (token) localStorage.setItem('token', token);
+          if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
           localStorage.setItem('user_info', JSON.stringify(data.data || data || {}));
           localStorage.setItem('isLoggedIn', 'true');
           setTimeout(() => {
@@ -2960,8 +2964,20 @@ export default function App() {
   const closeAuth = () => setAuthModal({ ...authModal, isOpen: false });
 
   const handleLogout = () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (refreshToken) {
+      fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/plain, */*'
+        },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      }).catch(console.error);
+    }
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_info');
     setIsLoggedIn(false);
     navigate('/');

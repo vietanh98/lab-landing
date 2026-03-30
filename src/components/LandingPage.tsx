@@ -254,7 +254,9 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
 
           // Lưu thông tin đăng nhập (API trả token tại data.data.access_token)
           const token = data?.data?.access_token || data?.access_token || data?.token;
+          const refreshToken = data?.data?.refresh_token || data?.refresh_token;
           if (token) localStorage.setItem('token', token);
+          if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
           localStorage.setItem('user_info', JSON.stringify(data.data || data || {}));
 
           setTimeout(() => {

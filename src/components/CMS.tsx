@@ -656,7 +656,19 @@ export default function CMS() {
   };
 
   const handleLogout = () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (refreshToken) {
+      fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/plain, */*'
+        },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      }).catch(console.error);
+    }
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     window.location.href = '/';
   };
 
