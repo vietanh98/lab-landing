@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Store, Users, Box, TrendingUp, Play, Eye, Trash2, ChevronRight, History } from 'lucide-react';
+import { Video, Store, Users, Box, TrendingUp, Play, Eye, Trash2, ChevronRight, History, HardDrive, CalendarClock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   AreaChart, 
@@ -22,6 +22,8 @@ interface DashboardProps {
     total_size_bytes?: number;
     total_employees?: number;
     total_lifetime_bytes?: number;
+    remaining_storage_bytes?: number;
+    subscription_expires_at?: string;
     subscriptions?: any;
   } | null;
   onViewVideo: (video: any) => void;
@@ -161,13 +163,14 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
   return (
     <div className="space-y-6 min-w-0">
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-5">
         {[
           { label: 'Tổng video', value: String(totalVideos), icon: <Video className="text-brand" />, trend: '', color: 'bg-brand/10' },
           { label: 'Cửa hàng', value: String(totalStores), icon: <Store className="text-emerald-600" />, trend: '', color: 'bg-emerald-100' },
           { label: 'Nhân viên', value: String(totalEmployees), icon: <Users className="text-amber-600" />, trend: '', color: 'bg-amber-100' },
-          { label: 'Dung lượng', value: totalSizeStr, icon: <Box className="text-rose-600" />, trend: '', color: 'bg-rose-100' },
-          { label: 'Dung lượng trọn đời', value: toHumanSize(metrics?.total_lifetime_bytes), icon: <History className="text-indigo-600" />, trend: '', color: 'bg-indigo-100' },
+          { label: 'Dung lượng đã dùng', value: toHumanSize(metrics?.total_lifetime_bytes), icon: <History className="text-indigo-600" />, trend: '', color: 'bg-indigo-100' },
+          { label: 'Dung lượng còn lại', value: toHumanSize(metrics?.remaining_storage_bytes), icon: <HardDrive className="text-cyan-600" />, trend: '', color: 'bg-cyan-100' },
+          { label: 'Hết hạn gói', value: metrics?.subscription_expires_at ? new Date(metrics.subscription_expires_at).toLocaleDateString('vi-VN') : '—', icon: <CalendarClock className="text-violet-600" />, trend: '', color: 'bg-violet-100' },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm min-w-0">
             <div className="flex items-center justify-between mb-3">

@@ -333,7 +333,7 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
                   onChange={handleChange}
                   type="text"
                   className={`w-full px-4 py-2.5 rounded-xl border ${errors.username ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
-                  placeholder="username"
+                  placeholder="User name / Số điện thoại"
                 />
                 {errors.username && <p className="text-red-500 text-[10px] mt-1">{errors.username}</p>}
               </div>
@@ -409,7 +409,7 @@ const AuthModal = ({ isOpen, mode, onClose }: { isOpen: boolean, mode: 'login' |
                   onChange={handleChange}
                   type="text"
                   className={`w-full px-4 py-2.5 rounded-xl border ${errors.username ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
-                  placeholder="username"
+                  placeholder="User name / Số điện thoại"
                 />
                 {errors.username && <p className="text-red-500 text-[10px] mt-1">{errors.username}</p>}
               </div>

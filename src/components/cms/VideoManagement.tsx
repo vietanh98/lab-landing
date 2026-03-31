@@ -290,6 +290,7 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
               <tr className="text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                 <th className="px-6 py-4">Mã video</th>
                 <th className="px-6 py-4">Cửa hàng</th>
+                <th className="px-6 py-4">Người quay</th>
                 <th className="px-6 py-4">Thiết bị</th>
                 <th className="px-6 py-4">Tiêu đề</th>
                 <th className="px-6 py-4">Mã vận đơn</th>
@@ -306,13 +307,14 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
             <tbody className="divide-y divide-slate-100">
               {loading && (
                 <tr>
-                  <td colSpan={13} className="px-6 py-6 text-center text-slate-500 text-sm">Đang tải dữ liệu...</td>
+                  <td colSpan={14} className="px-6 py-6 text-center text-slate-500 text-sm">Đang tải dữ liệu...</td>
                 </tr>
               )}
               {!loading && sortedVideos.map((vid: any, i: number) => (
                 <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4 text-sm text-slate-900 font-bold">{String(vid.id)}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{String(vid.store_name ?? '')}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{vid.recorded_by_name ? String(vid.recorded_by_name) : <span className="text-slate-400">—</span>}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{String(vid.device_id ?? '')}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">
                     <span className="inline-block max-w-48 truncate align-middle">{String(vid.title ?? '')}</span>

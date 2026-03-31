@@ -133,7 +133,9 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         if (dash && typeof dash === 'object') {
           setDashboardMetrics({
             ...dash,
-            total_lifetime_bytes: data?.data?.total_lifetime_bytes
+            total_lifetime_bytes: data?.data?.total_lifetime_bytes,
+            remaining_storage_bytes: data?.data?.remaining_storage_bytes,
+            subscription_expires_at: data?.data?.subscription_expires_at,
           });
         }
       } catch { }
@@ -1946,7 +1948,7 @@ const AuthModal = ({ isOpen, mode, onClose, onLoginSuccess }: { isOpen: boolean,
                   }}
                   type="text"
                   className={`w-full px-4 py-2.5 rounded-xl border ${errors.username ? 'border-red-500' : 'border-slate-200'} focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all`}
-                  placeholder="username"
+                  placeholder="UserName / Số điện thoại"
                 />
                 {errors.username && <p className="text-red-500 text-[10px] mt-1">{errors.username}</p>}
               </div>
@@ -2616,43 +2618,43 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
           {(() => {
             const pricingData = pricingPlans.length
               ? pricingPlans.map((p, idx) => ({
-                  name: p.name,
-                  price: typeof p.price === 'number' && p.price > 0 ? `${p.price.toLocaleString('vi-VN')}đ` : 'Miễn phí',
-                  period: "mỗi tháng",
-                  desc: "Gói dịch vụ LabBox",
-                  features: ["Quản lý video", "Tìm kiếm thông minh", "Hỗ trợ kỹ thuật"],
-                  button: "Đăng ký",
-                  highlight: idx === 1
-                }))
+                name: p.name,
+                price: typeof p.price === 'number' && p.price > 0 ? `${p.price.toLocaleString('vi-VN')}đ` : 'Miễn phí',
+                period: "mỗi tháng",
+                desc: "Gói dịch vụ LabBox",
+                features: ["Quản lý video", "Tìm kiếm thông minh", "Hỗ trợ kỹ thuật"],
+                button: "Đăng ký",
+                highlight: idx === 1
+              }))
               : [
-                  {
-                    name: "Cơ bản",
-                    price: "Miễn phí",
-                    period: "Mãi mãi",
-                    desc: "Dành cho các shop mới bắt đầu kinh doanh.",
-                    features: ["Lưu trữ 50 video/tháng", "Chất lượng HD 720p", "Tìm kiếm theo mã đơn", "Hỗ trợ qua email"],
-                    button: "Bắt đầu ngay",
-                    highlight: false
-                  },
-                  {
-                    name: "Chuyên nghiệp",
-                    price: "199.000đ",
-                    period: "mỗi tháng",
-                    desc: "Dành cho các shop có lượng đơn ổn định.",
-                    features: ["Lưu trữ 500 video/tháng", "Chất lượng Full HD 1080p", "Truy xuất nhanh 24/7", "Hỗ trợ ưu tiên 24/7", "Báo cáo thống kê"],
-                    button: "Dùng thử 7 ngày",
-                    highlight: true
-                  },
-                  {
-                    name: "Doanh nghiệp",
-                    price: "499.000đ",
-                    period: "mỗi tháng",
-                    desc: "Giải pháp tối ưu cho kho hàng lớn.",
-                    features: ["Không giới hạn video", "Chất lượng 4K Ultra HD", "API tích hợp hệ thống", "Quản lý nhiều kho hàng", "Account Manager riêng"],
-                    button: "Liên hệ tư vấn",
-                    highlight: false
-                  }
-                ];
+                {
+                  name: "Cơ bản",
+                  price: "Miễn phí",
+                  period: "Mãi mãi",
+                  desc: "Dành cho các shop mới bắt đầu kinh doanh.",
+                  features: ["Lưu trữ 50 video/tháng", "Chất lượng HD 720p", "Tìm kiếm theo mã đơn", "Hỗ trợ qua email"],
+                  button: "Bắt đầu ngay",
+                  highlight: false
+                },
+                {
+                  name: "Chuyên nghiệp",
+                  price: "199.000đ",
+                  period: "mỗi tháng",
+                  desc: "Dành cho các shop có lượng đơn ổn định.",
+                  features: ["Lưu trữ 500 video/tháng", "Chất lượng Full HD 1080p", "Truy xuất nhanh 24/7", "Hỗ trợ ưu tiên 24/7", "Báo cáo thống kê"],
+                  button: "Dùng thử 7 ngày",
+                  highlight: true
+                },
+                {
+                  name: "Doanh nghiệp",
+                  price: "499.000đ",
+                  period: "mỗi tháng",
+                  desc: "Giải pháp tối ưu cho kho hàng lớn.",
+                  features: ["Không giới hạn video", "Chất lượng 4K Ultra HD", "API tích hợp hệ thống", "Quản lý nhiều kho hàng", "Account Manager riêng"],
+                  button: "Liên hệ tư vấn",
+                  highlight: false
+                }
+              ];
 
             const isSlider = pricingData.length > 3;
             let gridColsClass = "md:grid-cols-3";
@@ -2663,55 +2665,55 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
 
             return (
               <div className="relative group/pricing">
-                <div 
+                <div
                   ref={pricingSlideRef}
                   className={isSlider ? "flex overflow-x-auto gap-6 pb-12 pt-4 px-4 snap-x snap-mandatory no-scrollbar hide-scroll" : `grid ${gridColsClass} gap-8`}
                   style={isSlider ? { scrollbarWidth: 'none', msOverflowStyle: 'none' } : {}}
                 >
                   {isSlider && <style>{`.hide-scroll::-webkit-scrollbar { display: none; }`}</style>}
-                {pricingData.map((plan, i) => (
-                  <motion.div
-                    key={i}
-                    whileHover={{ y: -10 }}
-                    className={`p-8 rounded-[2.5rem] border transition-all relative ${plan.highlight
-                      ? 'bg-white border-brand shadow-2xl shadow-brand/10 z-10'
-                      : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
-                      } ${isSlider ? 'snap-center shrink-0 w-[85vw] sm:w-[320px] max-w-[340px] hide-scroll' : ''}`}
-                  >
-                    {plan.highlight && (
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                        Phổ biến nhất
-                      </div>
-                    )}
-                    <div className="mb-8">
-                      <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
-                      <div className="flex items-baseline gap-1 mb-4">
-                        <span className="text-4xl font-display font-bold text-slate-900">{plan.price}</span>
-                        <span className="text-slate-500 text-sm">/{plan.period}</span>
-                      </div>
-                      <p className="text-slate-600 text-sm leading-relaxed">{plan.desc}</p>
-                    </div>
-
-                    <ul className="space-y-4 mb-10">
-                      {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-center gap-3 text-sm text-slate-600">
-                          <CheckCircle2 size={18} className="text-brand flex-shrink-0" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-
-                    <button
-                      onClick={() => openAuth('register')}
-                      className={`w-full py-4 rounded-2xl font-bold transition-all ${plan.highlight
-                        ? 'bg-brand hover:bg-brand-dark text-white shadow-lg shadow-brand/20'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
-                        }`}
+                  {pricingData.map((plan, i) => (
+                    <motion.div
+                      key={i}
+                      whileHover={{ y: -10 }}
+                      className={`p-8 rounded-[2.5rem] border transition-all relative ${plan.highlight
+                        ? 'bg-white border-brand shadow-2xl shadow-brand/10 z-10'
+                        : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
+                        } ${isSlider ? 'snap-center shrink-0 w-[85vw] sm:w-[320px] max-w-[340px] hide-scroll' : ''}`}
                     >
-                      {plan.button}
-                    </button>
-                  </motion.div>
-                ))}
+                      {plan.highlight && (
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                          Phổ biến nhất
+                        </div>
+                      )}
+                      <div className="mb-8">
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
+                        <div className="flex items-baseline gap-1 mb-4">
+                          <span className="text-4xl font-display font-bold text-slate-900">{plan.price}</span>
+                          <span className="text-slate-500 text-sm">/{plan.period}</span>
+                        </div>
+                        <p className="text-slate-600 text-sm leading-relaxed">{plan.desc}</p>
+                      </div>
+
+                      <ul className="space-y-4 mb-10">
+                        {plan.features.map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-3 text-sm text-slate-600">
+                            <CheckCircle2 size={18} className="text-brand flex-shrink-0" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+
+                      <button
+                        onClick={() => openAuth('register')}
+                        className={`w-full py-4 rounded-2xl font-bold transition-all ${plan.highlight
+                          ? 'bg-brand hover:bg-brand-dark text-white shadow-lg shadow-brand/20'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
+                          }`}
+                      >
+                        {plan.button}
+                      </button>
+                    </motion.div>
+                  ))}
                 </div>
 
                 {isSlider && (

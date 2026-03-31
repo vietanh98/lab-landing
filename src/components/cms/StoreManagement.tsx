@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Store, Edit, Trash2, Plus, Video, HardDrive, MapPin, User, MoreVertical, ExternalLink } from 'lucide-react';
+import { Store, Edit, Trash2, Plus, Video, HardDrive, MapPin, User, MoreVertical, ExternalLink, Clock, PackageCheck, RotateCcw } from 'lucide-react';
 
 interface StoreManagementProps {
   stores: any[];
@@ -157,7 +157,6 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
           })();
           const statusInfo = getStatusInfo(store.status);
           const colorClass = avatarColors[i % avatarColors.length];
-          const storageFmt = formatBytes(store.total_size_bytes);
           const initials = String(store.name || '?').slice(0, 2).toUpperCase();
 
           return (
@@ -252,23 +251,41 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
                 </div>
 
                 {/* Stats row */}
-                <div className="grid grid-cols-2 gap-2.5 mb-4">
-                  <div className="bg-slate-50 rounded-xl px-3.5 py-3">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Video size={13} className="text-brand" />
-                      <span className="text-xs text-slate-500 font-medium">Video</span>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 mb-1 text-slate-500">
+                      <Video size={12} className="text-brand" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Tổng Video</span>
                     </div>
-                    <p className="text-lg font-bold text-slate-900 leading-none">
-                      {store.total_video_count ?? '—'}
+                    <p className="text-base font-black text-slate-900 leading-none">
+                      {store.total_video_count ?? 0}
                     </p>
                   </div>
-                  <div className="bg-slate-50 rounded-xl px-3.5 py-3">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <HardDrive size={13} className="text-slate-400" />
-                      <span className="text-xs text-slate-500 font-medium">Dung lượng</span>
+                  <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 mb-1 text-slate-500">
+                      <Clock size={12} className="text-blue-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Hôm nay</span>
                     </div>
-                    <p className="text-lg font-bold text-slate-900 leading-none">
-                      {storageFmt ?? '—'}
+                    <p className="text-base font-black text-slate-900 leading-none">
+                      {(store.today_new_video_count || 0) + (store.today_return_video_count || 0)}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 mb-1 text-slate-500">
+                      <PackageCheck size={12} className="text-emerald-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Đơn mới</span>
+                    </div>
+                    <p className="text-base font-black text-slate-900 leading-none">
+                      {store.today_new_video_count ?? 0}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 mb-1 text-slate-500">
+                      <RotateCcw size={12} className="text-rose-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Đơn hoàn</span>
+                    </div>
+                    <p className="text-base font-black text-slate-900 leading-none">
+                      {store.today_return_video_count ?? 0}
                     </p>
                   </div>
                 </div>

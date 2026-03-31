@@ -40,6 +40,7 @@ interface VideoData {
   time: string;
   size: string;
   thumbnail: string;
+  recordedByName?: string;
 }
 
 interface UserData {
@@ -380,6 +381,7 @@ const Videos = ({ videos, onDelete }: { videos: VideoData[], onDelete: (id: stri
               <th className="pb-4 font-bold text-slate-400 text-sm uppercase tracking-wider">Video</th>
               <th className="pb-4 font-bold text-slate-400 text-sm uppercase tracking-wider">Mã đơn hàng</th>
               <th className="pb-4 font-bold text-slate-400 text-sm uppercase tracking-wider">Cửa hàng</th>
+              <th className="pb-4 font-bold text-slate-400 text-sm uppercase tracking-wider">Người quay</th>
               <th className="pb-4 font-bold text-slate-400 text-sm uppercase tracking-wider">Thời gian</th>
               <th className="pb-4 font-bold text-slate-400 text-sm uppercase tracking-wider">Dung lượng</th>
               <th className="pb-4"></th>
@@ -401,6 +403,7 @@ const Videos = ({ videos, onDelete }: { videos: VideoData[], onDelete: (id: stri
                 </td>
                 <td className="py-4 font-bold text-slate-900">{video.orderId}</td>
                 <td className="py-4 text-slate-600">{video.store}</td>
+                <td className="py-4 text-slate-600 text-sm">{video.recordedByName || <span className="text-slate-400 italic">—</span>}</td>
                 <td className="py-4 text-slate-500 text-sm">{video.time}</td>
                 <td className="py-4 text-slate-500 text-sm">{video.size}</td>
                 <td className="py-4 text-right">
@@ -601,13 +604,13 @@ export default function CMS() {
   ]);
 
   const [videos, setVideos] = useState<VideoData[]>([
-    { id: '1', orderId: '#DH99231', store: 'Shop Mẹ Bé', time: '20/03/2024 14:20', size: '15.4 MB', thumbnail: 'https://picsum.photos/seed/vlist1/120/80' },
-    { id: '2', orderId: '#DH99232', store: 'Shop Mẹ Bé', time: '20/03/2024 14:25', size: '12.1 MB', thumbnail: 'https://picsum.photos/seed/vlist2/120/80' },
-    { id: '3', orderId: '#DH99233', store: 'Gia Dụng Thông Minh', time: '20/03/2024 15:10', size: '18.2 MB', thumbnail: 'https://picsum.photos/seed/vlist3/120/80' },
-    { id: '4', orderId: '#DH99234', store: 'Thời Trang Nam', time: '20/03/2024 16:05', size: '14.8 MB', thumbnail: 'https://picsum.photos/seed/vlist4/120/80' },
-    { id: '5', orderId: '#DH99235', store: 'Shop Mẹ Bé', time: '20/03/2024 16:30', size: '16.1 MB', thumbnail: 'https://picsum.photos/seed/vlist5/120/80' },
-    { id: '6', orderId: '#DH99236', store: 'Shop Mẹ Bé', time: '20/03/2024 16:45', size: '11.4 MB', thumbnail: 'https://picsum.photos/seed/vlist6/120/80' },
-    { id: '7', orderId: '#DH99237', store: 'Gia Dụng Thông Minh', time: '20/03/2024 17:00', size: '13.9 MB', thumbnail: 'https://picsum.photos/seed/vlist7/120/80' },
+    { id: '1', orderId: '#DH99231', store: 'Shop Mẹ Bé', time: '20/03/2024 14:20', size: '15.4 MB', thumbnail: 'https://picsum.photos/seed/vlist1/120/80', recordedByName: 'Nguyễn Văn An' },
+    { id: '2', orderId: '#DH99232', store: 'Shop Mẹ Bé', time: '20/03/2024 14:25', size: '12.1 MB', thumbnail: 'https://picsum.photos/seed/vlist2/120/80', recordedByName: 'Trần Thị Bình' },
+    { id: '3', orderId: '#DH99233', store: 'Gia Dụng Thông Minh', time: '20/03/2024 15:10', size: '18.2 MB', thumbnail: 'https://picsum.photos/seed/vlist3/120/80', recordedByName: 'Lê Văn Cường' },
+    { id: '4', orderId: '#DH99234', store: 'Thời Trang Nam', time: '20/03/2024 16:05', size: '14.8 MB', thumbnail: 'https://picsum.photos/seed/vlist4/120/80', recordedByName: 'Nguyễn Văn An' },
+    { id: '5', orderId: '#DH99235', store: 'Shop Mẹ Bé', time: '20/03/2024 16:30', size: '16.1 MB', thumbnail: 'https://picsum.photos/seed/vlist5/120/80', recordedByName: 'Trần Thị Bình' },
+    { id: '6', orderId: '#DH99236', store: 'Shop Mẹ Bé', time: '20/03/2024 16:45', size: '11.4 MB', thumbnail: 'https://picsum.photos/seed/vlist6/120/80', recordedByName: 'Lê Văn Cường' },
+    { id: '7', orderId: '#DH99237', store: 'Gia Dụng Thông Minh', time: '20/03/2024 17:00', size: '13.9 MB', thumbnail: 'https://picsum.photos/seed/vlist7/120/80', recordedByName: 'Nguyễn Văn An' },
   ]);
 
   const [users, setUsers] = useState<UserData[]>([
