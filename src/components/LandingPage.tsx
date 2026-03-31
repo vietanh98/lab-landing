@@ -15,7 +15,8 @@ import {
   Phone,
   MapPin,
   X,
-  Menu
+  Menu,
+  Smartphone
 } from 'lucide-react';
 
 // Re-import AuthModal or define it here. Since it was in App.tsx, I'll move it here.
@@ -588,6 +589,13 @@ const Navbar = ({ onOpenAuth }: { onOpenAuth: (mode: 'login' | 'register') => vo
         </div>
 
         <div className="hidden md:flex items-center gap-4">
+          <a
+            href="#"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-700 hover:text-brand transition-colors"
+          >
+            <Smartphone size={18} />
+            Tải App
+          </a>
           <button
             onClick={() => onOpenAuth('login')}
             className="px-5 py-2.5 text-sm font-bold text-slate-700 hover:text-brand transition-colors"
@@ -623,6 +631,13 @@ const Navbar = ({ onOpenAuth }: { onOpenAuth: (mode: 'login' | 'register') => vo
                 <a key={item} href="#" className="text-lg font-semibold text-slate-600">{item}</a>
               ))}
               <hr className="border-slate-100" />
+              <a
+                href="#"
+                className="w-full py-3 flex items-center justify-center gap-2 font-bold text-slate-700 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                <Smartphone size={20} />
+                Tải App
+              </a>
               <button
                 onClick={() => { onOpenAuth('login'); setIsMobileMenuOpen(false); }}
                 className="w-full py-3 text-center font-bold text-slate-700"
@@ -922,8 +937,12 @@ export default function LandingPage() {
                 Giải pháp quay video đóng gói và quản lý đơn hàng thông minh dành cho nhà bán hàng TMĐT.
               </p>
               <div className="flex gap-4">
-                {[Facebook, Twitter, Instagram].map((Icon, i) => (
-                  <a key={i} href="#" className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-brand hover:border-brand transition-all">
+                {[
+                  { Icon: Facebook, href: "https://www.facebook.com/labbox.vn/" },
+                  { Icon: Twitter, href: "#" },
+                  { Icon: Instagram, href: "#" }
+                ].map(({ Icon, href }, i) => (
+                  <a key={i} href={href} target={href !== "#" ? "_blank" : undefined} rel={href !== "#" ? "noopener noreferrer" : undefined} className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-brand hover:border-brand transition-all">
                     <Icon size={20} />
                   </a>
                 ))}

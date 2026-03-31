@@ -46,7 +46,8 @@ import {
   User,
   Phone,
   Shield,
-  Clock
+  Clock,
+  Download
 } from 'lucide-react';
 
 // --- CMS Components ---
@@ -1399,18 +1400,25 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
             <a href="#contact" className="text-sm font-medium text-slate-600 hover:text-brand transition-colors">Liên hệ</a>
             <div className="h-4 w-[1px] bg-slate-200" />
             <button
-              onClick={() => onAuthClick('login')}
-              className="text-sm font-semibold text-slate-900 hover:text-brand transition-colors"
-            >
-              Đăng nhập
-            </button>
-            <button
-              onClick={() => onAuthClick('register')}
-              className="bg-brand hover:bg-brand-dark text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
-            >
-              Dùng thử miễn phí
-            </button>
-          </div>
+               onClick={() => onAuthClick('login')}
+               className="text-sm font-semibold text-slate-900 hover:text-brand transition-colors"
+             >
+               Đăng nhập
+             </button>
+             <a
+               href="#"
+               className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-900 px-5 py-2.5 rounded-full text-sm font-bold transition-all"
+             >
+               <Download size={18} className="text-brand" />
+               Tải App
+             </a>
+             <button
+               onClick={() => onAuthClick('register')}
+               className="bg-brand hover:bg-brand-dark text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
+             >
+               Dùng thử miễn phí
+             </button>
+           </div>
 
           {/* Mobile Menu Button */}
           <div className="md:hidden">
@@ -1436,6 +1444,13 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
               <a href="#about" className="block text-lg font-medium text-slate-900">Về chúng tôi</a>
               <a href="#contact" className="block text-lg font-medium text-slate-900">Liên hệ</a>
               <div className="pt-4 space-y-3">
+                <a
+                  href="#"
+                  className="flex items-center justify-center gap-2 w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-xl"
+                >
+                  <Download size={20} className="text-brand" />
+                  Tải App
+                </a>
                 <button
                   onClick={() => { onAuthClick('login'); setIsOpen(false); }}
                   className="w-full py-3 text-center font-bold text-slate-900 border border-slate-200 rounded-xl"
@@ -2476,6 +2491,13 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                 <ChevronRight className="group-hover:translate-x-1 transition-transform" />
               </button>
               <a
+                href="#"
+                className="w-full sm:w-auto px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2"
+              >
+                <Download size={20} />
+                Tải App ngay
+              </a>
+              <a
                 href="https://vt.tiktok.com/ZSuRUChBE/"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -2826,12 +2848,12 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
               </p>
               <div className="flex gap-4">
                 <a
-                  href="https://www.facebook.com/labboxio/"
+                  href="https://www.facebook.com/labbox.vn/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-brand hover:border-brand transition-all"
-                  aria-label="Facebook @labboxio"
-                  title="Facebook @labboxio"
+                  aria-label="Facebook @labbox.vn"
+                  title="Facebook @labbox.vn"
                 >
                   <Facebook size={20} />
                 </a>
@@ -2873,13 +2895,13 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                 </li>
                 <li>
                   <a
-                    href="mailto:info@moblab.io"
+                    href="mailto:contact@labbox.vn"
                     className="flex items-center gap-3 text-slate-600 hover:text-brand transition-colors"
                   >
                     <Info size={16} className="text-brand" />
                     <span>
-                      <span className="block text-xs font-semibold text-slate-500">General Info</span>
-                      <span className="block">info@moblab.io</span>
+                      <span className="block text-xs font-semibold text-slate-500">contact@labbox.vn</span>
+                      <span className="block">contact@labbox.vn</span>
                     </span>
                   </a>
                 </li>
@@ -2899,15 +2921,15 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                 </li>
                 <li>
                   <a
-                    href="https://www.facebook.com/labboxio/"
+                    href="https://www.facebook.com/labbox.vn/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-3 text-slate-600 hover:text-brand transition-colors"
                   >
                     <Facebook size={16} className="text-[#1877F2]" />
                     <span>
-                      <span className="block text-xs font-semibold text-slate-500">Facebook @labboxio</span>
-                      <span className="block">https://www.facebook.com/labboxio/</span>
+                      <span className="block text-xs font-semibold text-slate-500">Facebook @labbox.vn</span>
+                      <span className="block">https://www.facebook.com/labbox.vn/</span>
                     </span>
                   </a>
                 </li>
