@@ -31,7 +31,7 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
       setLoading(true);
       setError(null);
       try {
-        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         const endpoint = `${apiBase}/api/v1/store`;
         const token = localStorage.getItem('token');
         const headers: Record<string, string> = { 'Accept': 'application/json' };

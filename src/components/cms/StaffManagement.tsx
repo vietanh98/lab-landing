@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit, Trash2, ChevronLeft, ChevronRight, Search, User, ShieldCheck, Activity } from 'lucide-react';
 import CustomSelect from '../ui/CustomSelect';
 
 interface StaffManagementProps {
@@ -20,6 +20,12 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
   const [filterSearch, setFilterSearch] = useState('');
   const [filterRole, setFilterRole] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [roles, setRoles] = useState<any[]>([]);
+  const [appliedFilters, setAppliedFilters] = useState({
+    filterSearch: '',
+    filterRole: '',
+    filterStatus: '',
+  });
   const hasFetchedRef = useRef(false);
   const lastRefreshKeyRef = useRef<number | undefined>(undefined);
   const lastQueryRef = useRef<string>('');
@@ -28,11 +34,11 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
     setLoading(true);
     setError(null);
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       let query = `?page=${page}&per_page=${perPage}`;
-      if (filterSearch) query += `&search=${encodeURIComponent(filterSearch)}`;
-      if (filterRole) query += `&role_id=${filterRole}`;
-      if (filterStatus) query += `&status=${filterStatus}`;
+      if (appliedFilters.filterSearch) query += `&search=${encodeURIComponent(appliedFilters.filterSearch)}`;
+      if (appliedFilters.filterRole) query += `&role_id=${appliedFilters.filterRole}`;
+      if (appliedFilters.filterStatus) query += `&status=${appliedFilters.filterStatus}`;
       
       const endpoint = `${apiBase}/api/v1/users${query}`;
       const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
@@ -88,7 +94,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
   };
 
   useEffect(() => {
-    const queryKey = `${page}:${perPage}:${filterSearch}:${filterRole}:${filterStatus}`;
+    const queryKey = `${page}:${perPage}:${appliedFilters.filterSearch}:${appliedFilters.filterRole}:${appliedFilters.filterStatus}`;
     const shouldFetch = !hasFetchedRef.current || lastRefreshKeyRef.current !== refreshKey || lastQueryRef.current !== queryKey;
     if (shouldFetch) {
       hasFetchedRef.current = true;
@@ -96,7 +102,39 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
       lastQueryRef.current = queryKey;
       fetchStaff();
     }
-  }, [page, perPage, refreshKey, filterSearch, filterRole, filterStatus]);
+  }, [page, perPage, refreshKey, appliedFilters]);
+
+  const handleSearch = () => {
+    setAppliedFilters({
+      filterSearch,
+      filterRole,
+      filterStatus,
+    });
+    setPage(1);
+  };
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const endpoint = `${apiBase}/api/v1/rbac/roles`;
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        headers['X-Timestamp'] = Date.now().toString();
+        const res = await fetch(endpoint, { headers });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && (data?.status === true || data?.status_code === 0)) {
+          const listCandidate = data?.data?.data ?? data?.data ?? data?.roles ?? data ?? [];
+          const list = Array.isArray(listCandidate) ? listCandidate : (Array.isArray(listCandidate?.data) ? listCandidate.data : []);
+          setRoles(list.map((r: any) => ({ id: String(r.id), name: r.description || r.name })));
+        }
+      } catch (err) {
+        console.error('Error fetching roles', err);
+      }
+    };
+    fetchRoles();
+  }, []);
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
@@ -124,47 +162,73 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input
-            value={filterSearch}
-            onChange={(e) => {
-              setFilterSearch(e.target.value);
-              setPage(1);
-            }}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-brand transition-all"
-            placeholder="Tìm theo tên, email, username..."
-          />
-          <CustomSelect
-            name="filterRole"
-            label=""
-            hideLabel
-            defaultValue={filterRole}
-            placeholder="Vai trò (tất cả)"
-            options={[
-              { id: '26', name: 'Admin' },
-              { id: '28', name: 'Chủ shop' },
-              { id: '27', name: 'Nhân viên' }
-            ]}
-            onChange={(val) => {
-              setFilterRole(String(val));
-              setPage(1);
-            }}
-          />
-          <CustomSelect
-            name="filterStatus"
-            label=""
-            hideLabel
-            defaultValue={filterStatus}
-            placeholder="Trạng thái (tất cả)"
-            options={[
-              { id: '2', name: 'Hoạt động' },
-              { id: '1', name: 'Không hoạt động' }
-            ]}
-            onChange={(val) => {
-              setFilterStatus(String(val));
-              setPage(1);
-            }}
-          />
+        <div className="mx-2 mb-2 p-3 bg-white rounded-[1.5rem] border border-slate-100 shadow-lg shadow-slate-200/30 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-brand/5 rounded-full blur-2xl -mr-12 -mt-12" />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 relative z-10 items-end">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                <Search size={10} className="text-slate-300" />
+                Tìm kiếm
+              </label>
+              <div className="relative group">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
+                <input
+                  value={filterSearch}
+                  onChange={(e) => setFilterSearch(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                  placeholder="Tên, email..."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                <ShieldCheck size={10} className="text-slate-300" />
+                Vai trò
+              </label>
+              <CustomSelect
+                name="filterRole"
+                label=""
+                hideLabel
+                icon={ShieldCheck}
+                defaultValue={filterRole}
+                placeholder="Chọn vai trò"
+                options={roles}
+                onChange={(val) => setFilterRole(String(val))}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                <Activity size={10} className="text-slate-300" />
+                Trạng thái
+              </label>
+              <CustomSelect
+                name="filterStatus"
+                label=""
+                hideLabel
+                icon={Activity}
+                defaultValue={filterStatus}
+                placeholder="Chọn trạng thái"
+                options={[
+                  { id: '2', name: 'Hoạt động' },
+                  { id: '1', name: 'Không hoạt động' }
+                ]}
+                onChange={(val) => setFilterStatus(String(val))}
+              />
+            </div>
+
+            <div className="pb-0.5">
+              <button
+                onClick={handleSearch}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-brand to-brand-dark hover:shadow-lg hover:shadow-brand/30 text-white font-bold rounded-xl transition-all active:scale-[0.98] group"
+              >
+                <Search size={16} className="group-hover:scale-110 transition-transform" />
+                <span className="text-sm">Tìm kiếm</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -225,7 +225,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
   React.useEffect(() => {
     const fetchStaff = async () => {
       try {
-        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         const endpoint = `${apiBase}/api/v1/users?page=1&per_page=10`;
         const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
         const token = localStorage.getItem('token');
@@ -1406,7 +1406,9 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
                Đăng nhập
              </button>
              <a
-               href="#"
+               href="https://apps.apple.com/vn/app/labbox-quay-video-%C4%91%C3%B3ng-h%C3%A0ng/id6758076960?l=vi"
+               target="_blank"
+               rel="noopener noreferrer"
                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-900 px-5 py-2.5 rounded-full text-sm font-bold transition-all"
              >
                <Download size={18} className="text-brand" />
@@ -1445,7 +1447,9 @@ const Navbar = ({ onAuthClick }: { onAuthClick: (mode: 'login' | 'register') => 
               <a href="#contact" className="block text-lg font-medium text-slate-900">Liên hệ</a>
               <div className="pt-4 space-y-3">
                 <a
-                  href="#"
+                  href="https://apps.apple.com/vn/app/labbox-quay-video-%C4%91%C3%B3ng-h%C3%A0ng/id6758076960?l=vi"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-xl"
                 >
                   <Download size={20} className="text-brand" />
@@ -2491,7 +2495,9 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
                 <ChevronRight className="group-hover:translate-x-1 transition-transform" />
               </button>
               <a
-                href="#"
+                href="https://apps.apple.com/vn/app/labbox-quay-video-%C4%91%C3%B3ng-h%C3%A0ng/id6758076960?l=vi"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full sm:w-auto px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2"
               >
                 <Download size={20} />

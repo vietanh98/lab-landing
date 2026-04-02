@@ -17,6 +17,7 @@ interface CustomSelectProps {
   onChange?: (value: string | number | (string | number)[]) => void;
   hideLabel?: boolean;
   multiple?: boolean;
+  icon?: React.ElementType;
 }
 
 const CustomSelect: React.FC<CustomSelectProps> = ({ 
@@ -28,7 +29,8 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
   required = false,
   onChange,
   hideLabel = false,
-  multiple = false
+  multiple = false,
+  icon: Icon
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<(string | number)[]>(() => {
@@ -100,34 +102,39 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-3 py-2 bg-slate-50 border ${isOpen ? 'border-brand ring-4 ring-brand/5' : 'border-slate-200'} rounded-2xl transition-all text-left focus:outline-none min-h-[48px]`}
+        className={`w-full flex items-center justify-between px-3 py-2 bg-white border ${isOpen ? 'border-brand ring-4 ring-brand/5 shadow-lg shadow-brand/5' : 'border-slate-200 hover:border-slate-300'} rounded-2xl transition-all text-left focus:outline-none min-h-[44px] shadow-sm`}
       >
-        <div className="flex flex-wrap gap-1.5 flex-1 min-w-0 pr-2">
-          {selectedOptions.length > 0 ? (
-            multiple ? (
-              selectedOptions.map(option => (
-                <span 
-                  key={option.id}
-                  className="inline-flex items-center gap-1 px-2 py-1 bg-brand/10 text-brand text-xs font-bold rounded-lg whitespace-nowrap"
-                >
-                  {option.name}
-                  <X 
-                    size={14} 
-                    className="hover:text-brand-dark cursor-pointer transition-colors" 
-                    onClick={(e) => handleRemoveOption(e, option.id)}
-                  />
-                </span>
-              ))
-            ) : (
-              <span className="text-slate-900 font-medium truncate">
-                {selectedOptions[0].name}
-              </span>
-            )
-          ) : (
-            <span className="text-slate-400 font-medium whitespace-nowrap">
-              {placeholder}
-            </span>
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+          {Icon && (
+            <Icon size={18} className={`shrink-0 ${isOpen ? 'text-brand' : 'text-slate-400'}`} />
           )}
+          <div className="flex flex-wrap gap-1.5 flex-1 min-w-0 pr-2">
+            {selectedOptions.length > 0 ? (
+              multiple ? (
+                selectedOptions.map(option => (
+                  <span 
+                    key={option.id}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-brand/10 text-brand text-xs font-bold rounded-lg whitespace-nowrap"
+                  >
+                    {option.name}
+                    <X 
+                      size={14} 
+                      className="hover:text-brand-dark cursor-pointer transition-colors" 
+                      onClick={(e) => handleRemoveOption(e, option.id)}
+                    />
+                  </span>
+                ))
+              ) : (
+                <span className="text-slate-900 font-medium truncate">
+                  {selectedOptions[0].name}
+                </span>
+              )
+            ) : (
+              <span className="text-slate-400 font-medium whitespace-nowrap">
+                {placeholder}
+              </span>
+            )}
+          </div>
         </div>
         <ChevronDown 
           size={18} 
@@ -142,7 +149,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="absolute z-[300] left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl shadow-slate-200/50 overflow-hidden py-1.5"
+            className="absolute z-[300] left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl shadow-slate-200/60 overflow-hidden py-1.5"
           >
             <div className="max-h-60 overflow-y-auto custom-scrollbar">
               {options.length === 0 ? (

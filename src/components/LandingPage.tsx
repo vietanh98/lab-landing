@@ -590,7 +590,9 @@ const Navbar = ({ onOpenAuth }: { onOpenAuth: (mode: 'login' | 'register') => vo
 
         <div className="hidden md:flex items-center gap-4">
           <a
-            href="#"
+            href="https://apps.apple.com/vn/app/labbox-quay-video-%C4%91%C3%B3ng-h%C3%A0ng/id6758076960?l=vi"
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-slate-700 hover:text-brand transition-colors"
           >
             <Smartphone size={18} />
@@ -632,7 +634,9 @@ const Navbar = ({ onOpenAuth }: { onOpenAuth: (mode: 'login' | 'register') => vo
               ))}
               <hr className="border-slate-100" />
               <a
-                href="#"
+                href="https://apps.apple.com/vn/app/labbox-quay-video-%C4%91%C3%B3ng-h%C3%A0ng/id6758076960?l=vi"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full py-3 flex items-center justify-center gap-2 font-bold text-slate-700 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors"
               >
                 <Smartphone size={20} />
@@ -952,9 +956,10 @@ export default function LandingPage() {
             <div>
               <h4 className="font-bold mb-6">Sản phẩm</h4>
               <ul className="space-y-4 text-slate-500 text-sm">
-                {['Tính năng', 'Bảng giá', 'Hướng dẫn sử dụng', 'Tải ứng dụng'].map(item => (
+                {['Tính năng', 'Bảng giá', 'Hướng dẫn sử dụng'].map(item => (
                   <li key={item}><a href="#" className="hover:text-brand transition-colors">{item}</a></li>
                 ))}
+                <li><a href="https://apps.apple.com/vn/app/labbox-quay-video-%C4%91%C3%B3ng-h%C3%A0ng/id6758076960?l=vi" target="_blank" rel="noopener noreferrer" className="hover:text-brand transition-colors">Tải ứng dụng</a></li>
               </ul>
             </div>
 
