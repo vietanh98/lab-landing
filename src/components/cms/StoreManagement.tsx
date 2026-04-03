@@ -242,14 +242,6 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
                   </div>
                 </div>
 
-                {/* Status badge */}
-                <div className="mb-4">
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${statusInfo.badge}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
-                    {statusInfo.label}
-                  </span>
-                </div>
-
                 {/* Stats row */}
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   <div className="bg-slate-50 rounded-xl px-3 py-2.5">

@@ -18,9 +18,9 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [filterSearch, setFilterSearch] = useState('');
-  const [filterRole, setFilterRole] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [roles, setRoles] = useState<any[]>([]);
+  const [filterRole, setFilterRole] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [roles, setRoles] = useState<any[]>([{ id: 'all', name: 'Tất cả vai trò' }]);
   const [appliedFilters, setAppliedFilters] = useState({
     filterSearch: '',
     filterRole: '',
@@ -72,6 +72,28 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
         }));
         setItems(mapped);
 
+        // Extract roles from the current list and update roles state if needed
+        const currentStaffRoles = new Map();
+        rawList.forEach((u: any) => {
+          if (Array.isArray(u.roles)) {
+            u.roles.forEach((r: any) => {
+              currentStaffRoles.set(String(r.id), r.description || r.name);
+            });
+          }
+        });
+
+        if (currentStaffRoles.size > 0) {
+          setRoles(prev => {
+            const newRoles = [...prev];
+            currentStaffRoles.forEach((name, id) => {
+              if (!newRoles.find(r => String(r.id) === id)) {
+                newRoles.push({ id, name });
+              }
+            });
+            return newRoles;
+          });
+        }
+
         // Pagination metadata
         const total = Number(data?.data?.total_items ?? data?.data?.total ?? data?.meta?.total ?? data?.pagination?.total ?? 0);
         const lastPage = Number(data?.data?.total_pages ?? data?.meta?.last_page ?? data?.pagination?.total_pages ?? 0);
@@ -107,8 +129,8 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
   const handleSearch = () => {
     setAppliedFilters({
       filterSearch,
-      filterRole,
-      filterStatus,
+      filterRole: filterRole === 'all' ? '' : filterRole,
+      filterStatus: filterStatus === 'all' ? '' : filterStatus,
     });
     setPage(1);
   };
@@ -127,7 +149,16 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
         if (res.ok && (data?.status === true || data?.status_code === 0)) {
           const listCandidate = data?.data?.data ?? data?.data ?? data?.roles ?? data ?? [];
           const list = Array.isArray(listCandidate) ? listCandidate : (Array.isArray(listCandidate?.data) ? listCandidate.data : []);
-          setRoles(list.map((r: any) => ({ id: String(r.id), name: r.description || r.name })));
+          const mappedRoles = list.map((r: any) => ({ id: String(r.id), name: r.description || r.name }));
+          setRoles(prev => {
+            const allRoles = [...prev];
+            mappedRoles.forEach(r => {
+              if (!allRoles.find(existing => String(existing.id) === String(r.id))) {
+                allRoles.push(r);
+              }
+            });
+            return allRoles;
+          });
         }
       } catch (err) {
         console.error('Error fetching roles', err);
@@ -137,8 +168,8 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
   }, []);
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
-      <div className="p-4 border-b border-slate-100 flex flex-col gap-4">
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-visible flex flex-col min-h-[500px]">
+      <div className="p-4 border-b border-slate-100 flex flex-col gap-4 relative z-50">
         <div className="flex items-center justify-between">
           <span className="text-sm font-bold text-slate-900">
             Danh sách nhân viên {totalItems > 0 && `(${totalItems})`}
@@ -162,27 +193,27 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
           </div>
         </div>
         
-        <div className="mx-2 mb-2 p-3 bg-white rounded-[1.5rem] border border-slate-100 shadow-lg shadow-slate-200/30 relative overflow-hidden">
+        <div className="mx-2 mb-2 p-3 bg-white rounded-[1.5rem] border border-slate-100 shadow-lg shadow-slate-200/30 relative">
           <div className="absolute top-0 right-0 w-24 h-24 bg-brand/5 rounded-full blur-2xl -mr-12 -mt-12" />
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 relative z-10 items-end">
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                 <Search size={10} className="text-slate-300" />
                 Tìm kiếm
               </label>
               <div className="relative group">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
                 <input
                   value={filterSearch}
                   onChange={(e) => setFilterSearch(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                  className="w-full h-11 pl-10 pr-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
                   placeholder="Tên, email..."
                 />
               </div>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                 <ShieldCheck size={10} className="text-slate-300" />
                 Vai trò
@@ -193,13 +224,13 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
                 hideLabel
                 icon={ShieldCheck}
                 defaultValue={filterRole}
-                placeholder="Chọn vai trò"
+                placeholder="Tất cả vai trò"
                 options={roles}
                 onChange={(val) => setFilterRole(String(val))}
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                 <Activity size={10} className="text-slate-300" />
                 Trạng thái
@@ -210,8 +241,9 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
                 hideLabel
                 icon={Activity}
                 defaultValue={filterStatus}
-                placeholder="Chọn trạng thái"
+                placeholder="Tất cả trạng thái"
                 options={[
+                  { id: 'all', name: 'Tất cả trạng thái' },
                   { id: '2', name: 'Hoạt động' },
                   { id: '1', name: 'Không hoạt động' }
                 ]}
@@ -219,10 +251,10 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
               />
             </div>
 
-            <div className="pb-0.5">
+            <div className="h-11">
               <button
                 onClick={handleSearch}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-brand to-brand-dark hover:shadow-lg hover:shadow-brand/30 text-white font-bold rounded-xl transition-all active:scale-[0.98] group"
+                className="w-full h-full flex items-center justify-center gap-2 px-4 bg-gradient-to-r from-brand to-brand-dark hover:shadow-lg hover:shadow-brand/30 text-white font-bold rounded-2xl transition-all active:scale-[0.98] group"
               >
                 <Search size={16} className="group-hover:scale-110 transition-transform" />
                 <span className="text-sm">Tìm kiếm</span>

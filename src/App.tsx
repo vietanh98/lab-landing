@@ -895,9 +895,6 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
                   className="w-full h-full"
                 />
               </div>
-              <div className="px-6 py-2 bg-slate-100 text-[10px] text-slate-500 font-mono truncate">
-                Link: <a href={videoModal.video?.url} target="_blank" className="text-brand hover:underline">{videoModal.video?.url}</a>
-              </div>
               <div className="p-6 bg-slate-50 flex items-center justify-between">
                 <div className="text-sm text-slate-500">
                   <p>Cơ sở: {videoModal.video?.store}</p>

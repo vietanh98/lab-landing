@@ -53,6 +53,9 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         let query = `?page=${page}&per_page=${perPage}`;
         if (storeId) query += `&store_id=${storeId}`;
+        if (appliedFilters.searchTitle) query += `&title=${encodeURIComponent(appliedFilters.searchTitle)}`;
+        if (appliedFilters.filterStore) query += `&store_name=${encodeURIComponent(appliedFilters.filterStore)}`;
+        if (appliedFilters.filterQr1) query += `&qr_code_1=${encodeURIComponent(appliedFilters.filterQr1)}`;
         if (appliedFilters.filterFinishedOnly !== null) query += `&finished_only=${appliedFilters.filterFinishedOnly}`;
         if (appliedFilters.filterOrderType) query += `&order_type=${appliedFilters.filterOrderType}`;
         if (appliedFilters.filterIsPublished !== null) query += `&is_published=${appliedFilters.filterIsPublished}`;
@@ -117,7 +120,7 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
         setLoading(false);
       }
     };
-    const key = `${page}:${perPage}:${storeId ?? ''}`;
+    const key = `${page}:${perPage}:${storeId ?? ''}:${appliedFilters.searchTitle}:${appliedFilters.filterStore}:${appliedFilters.filterQr1}:${appliedFilters.filterFinishedOnly}:${appliedFilters.filterOrderType}:${appliedFilters.filterIsPublished}:${appliedFilters.filterRecordedBy}:${appliedFilters.filterDeviceId}`;
     if (hasFetchedRef.current && lastQueryRef.current === key) {
       return;
     }
@@ -232,8 +235,8 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex-1 h-full min-h-0 flex flex-col">
-      <div className="p-4 flex flex-col gap-3 border-b border-slate-100">
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-visible flex-1 h-full min-h-0 flex flex-col">
+      <div className="p-4 flex flex-col gap-3 border-b border-slate-100 relative z-50">
         <div className="flex items-center justify-between">
           <div className="text-sm font-bold text-slate-900">
             Quản lý Video {storeName ? `• ${storeName}` : ''}
@@ -256,28 +259,28 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
             />
           </div>
         </div>
-        <div className="mx-2 mb-2 p-3 bg-white rounded-[1.5rem] border border-slate-100 shadow-lg shadow-slate-200/30 relative overflow-hidden transition-all duration-300">
+        <div className="mx-2 mb-2 p-3 bg-white rounded-[1.5rem] border border-slate-100 shadow-lg shadow-slate-200/30 relative">
           <div className="absolute top-0 right-0 w-24 h-24 bg-brand/5 rounded-full blur-2xl -mr-12 -mt-12" />
           
           <div className="flex flex-col gap-3 relative z-10">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                   <Search size={10} className="text-slate-300" />
                   Tiêu đề
                 </label>
                 <div className="relative group">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
+                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
                   <input
                     value={searchTitle}
                     onChange={(e) => setSearchTitle(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                    className="w-full h-11 pl-10 pr-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
                     placeholder="Tìm tiêu đề..."
                   />
                 </div>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                   <Store size={10} className="text-slate-300" />
                   Cửa hàng
@@ -294,33 +297,33 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                 />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                   <Tag size={10} className="text-slate-300" />
                   Mã vận đơn
                 </label>
                 <div className="relative group">
-                  <Tag size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
+                  <Tag size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
                   <input
                     value={filterQr1}
                     onChange={(e) => setFilterQr1(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                    className="w-full h-11 pl-10 pr-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
                     placeholder="Nhập mã QR..."
                   />
                 </div>
               </div>
 
-              <div className="flex gap-2 h-[40px]">
+              <div className="flex gap-2 h-11">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`flex-1 flex items-center justify-center gap-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition-all ${showFilters ? 'bg-brand/10 text-brand outline outline-1 outline-brand/30' : ''}`}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all ${showFilters ? 'bg-brand/10 text-brand outline outline-1 outline-brand/30' : ''}`}
                 >
                   <Filter size={16} />
                   <span className="text-xs">{showFilters ? 'Ẩn bớt' : 'Thêm bộ lọc'}</span>
                 </button>
                 <button
                   onClick={handleSearch}
-                  className="flex-[1.5] flex items-center justify-center gap-2 px-4 bg-gradient-to-r from-brand to-brand-dark hover:shadow-lg hover:shadow-brand/30 text-white font-bold rounded-xl transition-all active:scale-[0.98] group"
+                  className="flex-[1.5] flex items-center justify-center gap-2 px-4 bg-gradient-to-r from-brand to-brand-dark hover:shadow-lg hover:shadow-brand/30 text-white font-bold rounded-2xl transition-all active:scale-[0.98] group"
                 >
                   <Search size={16} className="group-hover:scale-110 transition-transform" />
                   <span className="text-sm">Tìm kiếm</span>
@@ -334,31 +337,10 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
+                  className="overflow-visible"
                 >
-                  <div className="pt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 border-t border-slate-100">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-                        <CheckCircle2 size={10} className="text-slate-300" />
-                        Trạng thái
-                      </label>
-                      <CustomSelect
-                        name="filterFinishedOnly"
-                        label=""
-                        hideLabel
-                        icon={CheckCircle2}
-                        defaultValue={filterFinishedOnly === null ? '' : String(filterFinishedOnly)}
-                        placeholder="Tất cả kết quả"
-                        options={[
-                          { id: 'all', name: 'Tất cả' },
-                          { id: 'true', name: 'Đã kết thúc' },
-                          { id: 'false', name: 'Chưa kết thúc' }
-                        ]}
-                        onChange={(val) => setFilterFinishedOnly(val === 'all' ? null : val === 'true')}
-                      />
-                    </div>
-
-                    <div className="space-y-1">
+                  <div className="pt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 border-t border-slate-100">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                         <Shield size={10} className="text-slate-300" />
                         Riêng tư
@@ -375,11 +357,11 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                           { id: 'true', name: 'Công khai' },
                           { id: 'false', name: 'Riêng tư' }
                         ]}
-                        onChange={(val) => setFilterIsPublished(val === 'all' ? null : val === 'published')}
+                        onChange={(val) => setFilterIsPublished(val === 'all' ? null : val === 'true')}
                       />
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                         <Package size={10} className="text-slate-300" />
                         Loại đơn
@@ -400,33 +382,33 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                       />
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                         <User size={10} className="text-slate-300" />
                         Người quay
                       </label>
                       <div className="relative group">
-                        <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
+                        <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
                         <input
                           value={filterRecordedBy}
                           onChange={(e) => setFilterRecordedBy(e.target.value)}
-                          className="w-full pl-9 pr-3 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                          className="w-full h-11 pl-10 pr-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
                           placeholder="ID người quay..."
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
                         <Shield size={10} className="text-slate-300" />
                         Thiết bị
                       </label>
                       <div className="relative group">
-                        <Shield size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
+                        <Shield size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand transition-colors" />
                         <input
                           value={filterDeviceId}
                           onChange={(e) => setFilterDeviceId(e.target.value)}
-                          className="w-full pl-9 pr-3 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                          className="w-full h-11 pl-10 pr-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
                           placeholder="ID thiết bị..."
                         />
                       </div>
