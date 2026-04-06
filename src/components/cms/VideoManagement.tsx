@@ -473,7 +473,14 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                   <td className="px-6 py-4 text-sm">
                     <span className={`px-2 py-1 rounded-lg text-xs font-bold ${vid.is_auto_delete ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'}`}>{vid.is_auto_delete ? 'Có' : 'Không'}</span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500">{String(vid.keep_days ?? '')}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                    {String(vid.keep_days ?? '')}
+                    {vid.keep_day_times && (
+                      <span className="ml-2 text-brand font-bold bg-brand/5 px-2 py-0.5 rounded-lg border border-brand/10">
+                        ( {fmtDate(vid.keep_day_times)} )
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-sm text-slate-500">{fmtDate(vid.created_at)}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">

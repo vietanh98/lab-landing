@@ -10,6 +10,7 @@ interface SubscriptionPlan {
   max_devices: number;
   price: number;
   created_at: string;
+  is_visible: boolean;
 }
 
 interface SubscriptionManagementProps {
@@ -180,8 +181,10 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
 
         const ok = res.ok && (data?.status === true || data?.status_code === 0);
         if (ok && data?.data?.data) {
-          // Sắp xếp theo giá tăng dần
-          const sorted = data.data.data.sort((a: SubscriptionPlan, b: SubscriptionPlan) => a.price - b.price);
+          // Sắp xếp theo giá tăng dần và lọc các gói ẩn (phải có is_visible === true)
+          const sorted = data.data.data
+            .filter((p: any) => p.is_visible === true)
+            .sort((a: SubscriptionPlan, b: SubscriptionPlan) => a.price - b.price);
           setSubscriptions(sorted);
         } else {
           setError(data?.message || 'Không thể lấy danh sách gói');

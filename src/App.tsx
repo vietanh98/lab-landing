@@ -2437,7 +2437,8 @@ const LandingPage = ({ openAuth, authModal, closeAuth, setIsLoggedIn, onLoginSuc
           return;
         }
         const list = Array.isArray(data?.data?.data) ? data.data.data : Array.isArray(data?.data) ? data.data : [];
-        const mapped = list.map((p: any) => ({ id: Number(p.id), name: String(p.name || ''), price: Number(p.price || 0) }));
+        const filtered = list.filter((p: any) => p.is_visible === true);
+        const mapped = filtered.map((p: any) => ({ id: Number(p.id), name: String(p.name || ''), price: Number(p.price || 0) }));
         setPricingPlans(mapped);
       } catch {
         setPricingError('Không thể kết nối đến máy chủ');
