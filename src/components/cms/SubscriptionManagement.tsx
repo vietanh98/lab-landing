@@ -169,7 +169,7 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
       setError(null);
       try {
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-        const endpoint = `${apiBase}/api/v1/subcription?page=1&per_page=10`;
+        const endpoint = `${apiBase}/api/v1/subcription?page=1&per_page=50`;
         const token = localStorage.getItem('token');
 
         const headers: Record<string, string> = { 'Accept': 'application/json' };

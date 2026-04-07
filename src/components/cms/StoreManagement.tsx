@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Store, Edit, Trash2, Plus, Video, HardDrive, MapPin, User, MoreVertical, ExternalLink, Clock, PackageCheck, RotateCcw } from 'lucide-react';
+import { Store, Edit, Trash2, Plus, Video, HardDrive, MapPin, User, MoreVertical, ExternalLink, Clock, PackageCheck, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface StoreManagementProps {
   stores: any[];
@@ -14,8 +14,12 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
   const [localStores, setLocalStores] = useState<any[]>(stores || []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalStores, setTotalStores] = useState(0);
   const hasFetchedRef = useRef(false);
-  const lastRefreshKeyRef = useRef<number | undefined>(undefined);
+  const lastQueryRef = useRef<string>('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const mediaBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
   const toAbs = (p: string) => {
@@ -32,7 +36,7 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
       setError(null);
       try {
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-        const endpoint = `${apiBase}/api/v1/store`;
+        const endpoint = `${apiBase}/api/v1/store?page=${page}&per_page=${perPage}`;
         const token = localStorage.getItem('token');
         const headers: Record<string, string> = { 'Accept': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -45,6 +49,17 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
             ? listCandidate
             : (Array.isArray(listCandidate?.data) ? listCandidate.data : []);
           setLocalStores(items);
+          
+          const total = Number(data?.data?.total_items ?? data?.data?.total ?? data?.meta?.total ?? 0);
+          const lastPage = Number(data?.data?.last_page ?? data?.meta?.last_page ?? data?.pagination?.total_pages ?? 0);
+          if (lastPage > 0) {
+            setTotalPages(lastPage);
+          } else if (total > 0) {
+            setTotalPages(Math.max(1, Math.ceil(total / perPage)));
+          } else {
+            setTotalPages(1);
+          }
+          setTotalStores(total > 0 ? total : items.length);
         } else {
           setError(data?.message || 'Không thể lấy danh sách cửa hàng');
         }
@@ -54,12 +69,14 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
         setLoading(false);
       }
     };
-    const shouldFetch = !hasFetchedRef.current || lastRefreshKeyRef.current !== refreshKey;
+    
+    const queryKey = `${page}:${perPage}:${refreshKey}`;
+    const shouldFetch = !hasFetchedRef.current || lastQueryRef.current !== queryKey;
     if (!shouldFetch) return;
     hasFetchedRef.current = true;
-    lastRefreshKeyRef.current = refreshKey;
+    lastQueryRef.current = queryKey;
     fetchStores();
-  }, [refreshKey]);
+  }, [refreshKey, page, perPage]);
 
   const handleDelete = (id: string) => {
     if (onDeleteStore) onDeleteStore(id);
@@ -140,10 +157,7 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
           </span>
           <span className="w-1 h-1 bg-slate-300 rounded-full" />
           <span className="text-sm text-emerald-600 font-medium">
-            {localStores.filter(s => {
-              const st = String(s.status || '').toLowerCase();
-              return st === 'active' || st === 'hoạt động';
-            }).length} đang hoạt động
+            Mục {localStores.length} / Tổng {totalStores > 0 ? totalStores : localStores.length}
           </span>
         </div>
       )}
@@ -309,6 +323,27 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
           </div>
         </button>
       </div>
+
+      {/* Pagination control */}
+      {totalPages > 1 && (
+        <div className="p-4 mt-6 flex items-center justify-center gap-4 bg-white rounded-2xl border border-slate-100">
+          <button
+            disabled={page <= 1 || loading}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            className="p-2 rounded-xl border border-slate-200 disabled:opacity-30 hover:bg-slate-50 transition-colors"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span className="text-sm font-bold text-slate-600">Trang {page} / {totalPages}</span>
+          <button
+            disabled={page >= totalPages || loading}
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            className="p-2 rounded-xl border border-slate-200 disabled:opacity-30 hover:bg-slate-50 transition-colors"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

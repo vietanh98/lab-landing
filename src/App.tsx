@@ -199,7 +199,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     const fetchStores = async () => {
       try {
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-        const endpoint = `${apiBase}/api/v1/store?page=1&per_page=10`;
+        const endpoint = `${apiBase}/api/v1/store?page=1&per_page=50`;
         const headers: Record<string, string> = { Accept: 'application/json' };
         const token = localStorage.getItem('token');
         if (token) headers['Authorization'] = `Bearer ${token}`;
