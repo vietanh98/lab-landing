@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Store, Users, Box, TrendingUp, Play, Eye, Trash2, ChevronRight, History, HardDrive, CalendarClock } from 'lucide-react';
+import { Video, Store, Users, TrendingUp, Play, Eye, Trash2, ChevronRight, History, HardDrive, CalendarClock, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   TooltipProps
 } from 'recharts';
+// Shared formatter — everyone in the app renders storage as GB now.
+import { formatBytesAsGB, formatGB, storageUsagePercent } from '../../utils/format';
 
 interface DashboardProps {
   videos: any[];
@@ -34,25 +36,46 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, onViewVideo, onDeleteVideo, onUpgrade }) => {
   const [timeFilter, setTimeFilter] = useState<'day' | 'month' | 'year'>('day');
 
-  const toHumanSize = (bytes?: number) => {
-    if (!bytes || typeof bytes !== 'number' || isNaN(bytes)) return '0 GB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    }
-    const gb = bytes / (1024 * 1024 * 1024);
-    return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
-  };
+  // `personal` block fetched from the new /api/v1/dashboard endpoint. It's a
+  // superset of the old `metrics` prop (which comes from /auth/me) and also
+  // carries quota usage percentage, days-until-expiry, plan name, etc. We
+  // prefer `personal` when present and fall back to `metrics` so the UI keeps
+  // working if the new endpoint isn't deployed yet.
+  const [personal, setPersonal] = useState<any | null>(null);
+  const eff = personal || metrics || {};
 
-  const totalVideos = typeof metrics?.total_videos === 'number' ? metrics!.total_videos : videos.length;
-  const totalStores = typeof metrics?.total_stores === 'number' ? metrics!.total_stores : stores.length;
-  const totalEmployees = typeof metrics?.total_employees === 'number' ? metrics!.total_employees : staff.length;
-  const totalSizeStr = toHumanSize(metrics?.total_size_bytes);
+  const totalVideos = typeof eff?.total_videos === 'number' ? eff.total_videos : videos.length;
+  const totalStores = typeof eff?.total_stores === 'number' ? eff.total_stores : stores.length;
+  const totalEmployees = typeof eff?.total_employees === 'number' ? eff.total_employees : staff.length;
 
   const [apiChartData, setApiChartData] = useState<any[]>([]);
   const [growthValue, setGrowthValue] = useState(0);
   const [loadingStats, setLoadingStats] = useState(false);
   const [recentVideos, setRecentVideos] = useState<any[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
+
+  // Fetch the new unified dashboard endpoint once on mount. For a non-admin
+  // user the response shape is `{ is_admin: false, personal: {...}, admin: null }`.
+  // Anything inside `personal` (quota usage, expiry countdown, plan name)
+  // becomes visible to the user — the admin block is dropped by the backend.
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+        const token = localStorage.getItem('token');
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`${apiBase}/api/v1/dashboard`, { headers });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && (data?.status === true) && data?.data?.personal) {
+          setPersonal(data.data.personal);
+        }
+      } catch {
+        // Silent fail — fall back to the `metrics` prop (legacy /auth/me data).
+      }
+    };
+    fetchDashboard();
+  }, []);
 
   useEffect(() => {
     const fetchRecentVideos = async () => {
@@ -160,17 +183,60 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
     return null;
   };
 
+  // Derived quota numbers — re-computed each render so `personal` updates flow
+  // through. `usage_percent` comes straight from the backend when it's present
+  // (it already clamps at 100); we fall back to a local calculation if only
+  // the legacy `metrics` prop is available.
+  const usedBytes = Number(eff?.total_lifetime_bytes ?? 0);
+  const remainingBytes = Number(eff?.remaining_storage_bytes ?? 0);
+  const maxGB = Number(eff?.max_storage_gb ?? 0);
+  const usagePct = typeof eff?.usage_percent === 'number'
+    ? eff.usage_percent
+    : storageUsagePercent(usedBytes, maxGB);
+  const daysLeft = typeof eff?.days_until_expiry === 'number' ? eff.days_until_expiry : null;
+
+  // Expiry banner colour ramps from info → warning → error as the deadline
+  // approaches. Negative = already expired.
+  const expiryBanner = (() => {
+    if (!eff?.subscription_expires_at) return null;
+    if (daysLeft == null) return null;
+    if (daysLeft < 0) return { color: 'rose', text: `Gói đã hết hạn ${Math.abs(daysLeft)} ngày trước` };
+    if (daysLeft <= 7) return { color: 'amber', text: `Gói sẽ hết hạn sau ${daysLeft} ngày` };
+    return null;
+  })();
+
   return (
     <div className="space-y-6 min-w-0">
+      {/* Expiry warning banner (shown only when plan is <=7d or expired) */}
+      {expiryBanner && (
+        <div className={`flex items-center gap-3 p-4 rounded-2xl border ${
+          expiryBanner.color === 'rose'
+            ? 'bg-rose-50 border-rose-200 text-rose-800'
+            : 'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          <AlertTriangle size={20} />
+          <div className="flex-1">
+            <p className="font-bold">{expiryBanner.text}</p>
+            {eff?.plan_name && <p className="text-xs opacity-75">Gói hiện tại: {eff.plan_name}</p>}
+          </div>
+          <button
+            onClick={onUpgrade}
+            className="text-sm font-bold underline-offset-2 hover:underline"
+          >
+            Gia hạn
+          </button>
+        </div>
+      )}
+
       {/* Stats Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-5">
         {[
           { label: 'Tổng video', value: String(totalVideos), icon: <Video className="text-brand" />, trend: '', color: 'bg-brand/10' },
           { label: 'Cửa hàng', value: String(totalStores), icon: <Store className="text-emerald-600" />, trend: '', color: 'bg-emerald-100' },
           { label: 'Nhân viên', value: String(totalEmployees), icon: <Users className="text-amber-600" />, trend: '', color: 'bg-amber-100' },
-          { label: 'Dung lượng đã dùng', value: toHumanSize(metrics?.total_lifetime_bytes), icon: <History className="text-indigo-600" />, trend: '', color: 'bg-indigo-100' },
-          { label: 'Dung lượng còn lại', value: toHumanSize(metrics?.remaining_storage_bytes), icon: <HardDrive className="text-cyan-600" />, trend: '', color: 'bg-cyan-100' },
-          { label: 'Hết hạn gói', value: metrics?.subscription_expires_at ? new Date(metrics.subscription_expires_at).toLocaleDateString('vi-VN') : '—', icon: <CalendarClock className="text-violet-600" />, trend: '', color: 'bg-violet-100' },
+          { label: 'Dung lượng đã dùng', value: formatBytesAsGB(usedBytes), icon: <History className="text-indigo-600" />, trend: '', color: 'bg-indigo-100' },
+          { label: 'Dung lượng còn lại', value: formatBytesAsGB(remainingBytes), icon: <HardDrive className="text-cyan-600" />, trend: '', color: 'bg-cyan-100' },
+          { label: 'Hết hạn gói', value: eff?.subscription_expires_at ? new Date(eff.subscription_expires_at).toLocaleDateString('vi-VN') : '—', icon: <CalendarClock className="text-violet-600" />, trend: '', color: 'bg-violet-100' },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm min-w-0">
             <div className="flex items-center justify-between mb-3">
@@ -184,6 +250,42 @@ const Dashboard: React.FC<DashboardProps> = ({ videos, stores, staff, metrics, o
           </div>
         ))}
       </div>
+
+      {/* Storage progress — only shown when we know the quota (max_storage_gb).
+          Bar colour ramps red once >=95% to flag imminent over-quota. */}
+      {maxGB > 0 && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 min-w-0">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Hạn mức lưu trữ</p>
+              <p className="text-lg font-bold text-slate-900 mt-1">
+                {formatBytesAsGB(usedBytes)}{' '}
+                <span className="text-sm font-medium text-slate-500">/ {formatGB(maxGB)}</span>
+              </p>
+            </div>
+            <span className={`text-sm font-bold px-3 py-1 rounded-full ${
+              usagePct >= 95 ? 'bg-rose-100 text-rose-700'
+                : usagePct >= 75 ? 'bg-amber-100 text-amber-700'
+                : 'bg-emerald-100 text-emerald-700'
+            }`}>
+              {usagePct.toFixed(1)}%
+            </span>
+          </div>
+          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all ${
+                usagePct >= 95 ? 'bg-rose-500'
+                  : usagePct >= 75 ? 'bg-amber-500'
+                  : 'bg-brand'
+              }`}
+              style={{ width: `${Math.min(100, usagePct)}%` }}
+            />
+          </div>
+          {eff?.plan_name && (
+            <p className="text-xs text-slate-500 mt-2">Gói: {eff.plan_name}</p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 min-w-0">
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 min-w-0 overflow-hidden">

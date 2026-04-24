@@ -168,7 +168,10 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ showUpg
       setLoading(true);
       setError(null);
       try {
-        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        // Fallback aligned with the rest of the app (port 8000). Earlier code
+        // had `3000` which silently pointed to the Vite dev server and broke
+        // subscription loading when VITE_API_BASE_URL wasn't set.
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         const endpoint = `${apiBase}/api/v1/subcription?page=1&per_page=50`;
         const token = localStorage.getItem('token');
 

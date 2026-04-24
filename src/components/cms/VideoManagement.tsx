@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Eye, Trash2, ChevronLeft, ChevronRight, Copy, Check, X, ExternalLink, Search, Store, Tag, CheckCircle2, Shield, Package, Filter, User } from 'lucide-react';
+import { Eye, Trash2, ChevronLeft, ChevronRight, Copy, Check, X as XIcon, ExternalLink, Search, Store, Tag, Shield, Package, Filter, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 import CustomSelect from '../ui/CustomSelect';
@@ -27,6 +27,13 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
   const [filterFinishedOnly, setFilterFinishedOnly] = useState<boolean | null>(null);
   const [filterOrderType, setFilterOrderType] = useState('');
   const [filterIsPublished, setFilterIsPublished] = useState<boolean | null>(null);
+  // These two used to be declared later in the component body. The new
+  // auto-apply useEffect references them in its dependency array, which was
+  // running before their `useState` line and blowing up with a TDZ error
+  // ("Cannot access 'filterRecordedBy' before initialization"). Moving them
+  // up here keeps the auto-apply effect's closure valid.
+  const [filterRecordedBy, setFilterRecordedBy] = useState('');
+  const [filterDeviceId, setFilterDeviceId] = useState('');
   const [showPublicModal, setShowPublicModal] = useState(false);
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
@@ -53,7 +60,12 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
         let query = `?page=${page}&per_page=${perPage}`;
         if (storeId) query += `&store_id=${storeId}`;
-        if (appliedFilters.searchTitle) query += `&title=${encodeURIComponent(appliedFilters.searchTitle)}`;
+        // Backend expects `search` (substring across title + qr_code_1 +
+        // qr_code_2 + device_id). The old `title=` param was silently ignored.
+        if (appliedFilters.searchTitle) query += `&search=${encodeURIComponent(appliedFilters.searchTitle)}`;
+        // `store_name=` is not an API param — left in for legacy compat only.
+        // It will be ignored by the backend; the store dropdown drives
+        // `storeId` above which maps to the real `store_id` filter.
         if (appliedFilters.filterStore) query += `&store_name=${encodeURIComponent(appliedFilters.filterStore)}`;
         if (appliedFilters.filterQr1) query += `&qr_code_1=${encodeURIComponent(appliedFilters.filterQr1)}`;
         if (appliedFilters.filterFinishedOnly !== null) query += `&finished_only=${appliedFilters.filterFinishedOnly}`;
@@ -129,16 +141,101 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
     fetchVideos();
   }, [page, perPage, storeId, appliedFilters]);
 
-  const handleSearch = () => {
+  // ---------- Auto-apply filters ----------
+  //
+  // Every filter commits on change instead of waiting for a submit button:
+  //   • Text fields (title, QR, recorded_by, device_id) debounce 400ms so
+  //     we don't hit the API on every keystroke.
+  //   • Dropdown filters (store, order type, published) commit immediately
+  //     because the change is a single discrete action.
+  //
+  // Each commit also resets `page` to 1 — otherwise a user browsing page 5
+  // and narrowing the filter set would land on an empty page.
+
+  // Debounced text filters — bundled into one effect so a single timer
+  // covers the whole batch. Any of the four text inputs resets the timer.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = {
+        searchTitle: searchTitle.trim(),
+        filterQr1: filterQr1.trim(),
+        filterRecordedBy: filterRecordedBy.trim(),
+        filterDeviceId: filterDeviceId.trim(),
+      };
+      setAppliedFilters(prev => {
+        if (
+          prev.searchTitle === next.searchTitle &&
+          prev.filterQr1 === next.filterQr1 &&
+          prev.filterRecordedBy === next.filterRecordedBy &&
+          prev.filterDeviceId === next.filterDeviceId
+        ) {
+          return prev;
+        }
+        return { ...prev, ...next };
+      });
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [searchTitle, filterQr1, filterRecordedBy, filterDeviceId]);
+
+  // Immediate dropdown filters — one effect watching all three so we don't
+  // fan out state churn across multiple effects.
+  useEffect(() => {
+    setAppliedFilters(prev => {
+      if (
+        prev.filterStore === filterStore &&
+        prev.filterOrderType === filterOrderType &&
+        prev.filterIsPublished === filterIsPublished &&
+        prev.filterFinishedOnly === filterFinishedOnly
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        filterStore,
+        filterOrderType,
+        filterIsPublished,
+        filterFinishedOnly,
+      };
+    });
+    setPage(1);
+  }, [filterStore, filterOrderType, filterIsPublished, filterFinishedOnly]);
+
+  // Is ANY filter currently set? Drives the conditional "Xoá bộ lọc" button
+  // so the filter bar stays clean when there's nothing to reset.
+  const hasActiveFilter =
+    searchTitle.trim().length > 0 ||
+    filterQr1.trim().length > 0 ||
+    filterRecordedBy.trim().length > 0 ||
+    filterDeviceId.trim().length > 0 ||
+    filterStore !== '' ||
+    filterOrderType !== '' ||
+    filterIsPublished !== null ||
+    filterFinishedOnly !== null;
+
+  const clearAllFilters = () => {
+    setSearchTitle('');
+    setFilterQr1('');
+    setFilterRecordedBy('');
+    setFilterDeviceId('');
+    setFilterStore('');
+    setFilterOrderType('');
+    setFilterIsPublished(null);
+    setFilterFinishedOnly(null);
+    // Also push the cleared state straight into `appliedFilters` so the list
+    // reloads once. Without this, the debounced + immediate effects would
+    // each commit their slice of the reset and trigger two fetches. By
+    // pre-flattening here, those follow-up effects see `prev === next` and
+    // skip — we get a single fetch with the right page reset.
     setAppliedFilters({
-      searchTitle,
-      filterStore,
-      filterQr1,
-      filterFinishedOnly,
-      filterOrderType,
-      filterIsPublished,
-      filterRecordedBy,
-      filterDeviceId,
+      searchTitle: '',
+      filterStore: '',
+      filterQr1: '',
+      filterFinishedOnly: null,
+      filterOrderType: '',
+      filterIsPublished: null,
+      filterRecordedBy: '',
+      filterDeviceId: '',
     });
     setPage(1);
   };
@@ -167,8 +264,9 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
     fetchAllStores();
   }, []);
 
-  const [filterRecordedBy, setFilterRecordedBy] = useState('');
-  const [filterDeviceId, setFilterDeviceId] = useState('');
+  // (filterRecordedBy + filterDeviceId are declared near the top of the
+  // component now — their old `useState` lines used to sit here, but the
+  // auto-apply effect needs them earlier in scope.)
 
   const mbToBytes = (mb: number) => Math.round(mb * 1024 * 1024);
   const toMB = (bytes?: number) => {
@@ -274,9 +372,21 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                   <input
                     value={searchTitle}
                     onChange={(e) => setSearchTitle(e.target.value)}
-                    className="w-full h-11 pl-10 pr-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                    // `pr-10` reserves room for the inline clear chip that
+                    // appears once the field is non-empty.
+                    className="w-full h-11 pl-10 pr-10 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
                     placeholder="Tìm tiêu đề..."
                   />
+                  {searchTitle.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTitle('')}
+                      title="Xoá từ khoá"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition-colors"
+                    >
+                      <XIcon size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -290,10 +400,16 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                   label=""
                   hideLabel
                   icon={Store}
-                  defaultValue={filterStore}
-                  placeholder="Chọn cửa hàng"
-                  options={stores.map(s => ({ id: s, name: s }))}
-                  onChange={(val) => setFilterStore(String(val))}
+                  defaultValue={filterStore || 'all'}
+                  placeholder="Tất cả cửa hàng"
+                  // Added an explicit "Tất cả" option so the store filter can
+                  // be cleared from within the dropdown without needing the
+                  // global "Xoá bộ lọc" button.
+                  options={[
+                    { id: 'all', name: 'Tất cả cửa hàng' },
+                    ...stores.map(s => ({ id: s, name: s })),
+                  ]}
+                  onChange={(val) => setFilterStore(val === 'all' ? '' : String(val))}
                 />
               </div>
 
@@ -307,12 +423,28 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                   <input
                     value={filterQr1}
                     onChange={(e) => setFilterQr1(e.target.value)}
-                    className="w-full h-11 pl-10 pr-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                    className="w-full h-11 pl-10 pr-10 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
                     placeholder="Nhập mã QR..."
                   />
+                  {filterQr1.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterQr1('')}
+                      title="Xoá mã QR"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition-colors"
+                    >
+                      <XIcon size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
 
+              {/*
+                The right-hand slot used to hold the "Tìm kiếm" submit button.
+                Filters now commit on their own — that button is gone. We keep
+                the "Thêm bộ lọc" toggle and grow a conditional "Xoá bộ lọc"
+                button that's only visible when something is actually filtered.
+              */}
               <div className="flex gap-2 h-11">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
@@ -321,13 +453,16 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                   <Filter size={16} />
                   <span className="text-xs">{showFilters ? 'Ẩn bớt' : 'Thêm bộ lọc'}</span>
                 </button>
-                <button
-                  onClick={handleSearch}
-                  className="flex-[1.5] flex items-center justify-center gap-2 px-4 bg-gradient-to-r from-brand to-brand-dark hover:shadow-lg hover:shadow-brand/30 text-white font-bold rounded-2xl transition-all active:scale-[0.98] group"
-                >
-                  <Search size={16} className="group-hover:scale-110 transition-transform" />
-                  <span className="text-sm">Tìm kiếm</span>
-                </button>
+                {hasActiveFilter && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold rounded-2xl transition-all active:scale-[0.98]"
+                    title="Xoá tất cả bộ lọc"
+                  >
+                    <XIcon size={16} />
+                    <span className="text-xs">Xoá bộ lọc</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -392,9 +527,19 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                         <input
                           value={filterRecordedBy}
                           onChange={(e) => setFilterRecordedBy(e.target.value)}
-                          className="w-full h-11 pl-10 pr-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                          className="w-full h-11 pl-10 pr-10 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
                           placeholder="ID người quay..."
                         />
+                        {filterRecordedBy.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setFilterRecordedBy('')}
+                            title="Xoá"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition-colors"
+                          >
+                            <XIcon size={14} />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -408,9 +553,19 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                         <input
                           value={filterDeviceId}
                           onChange={(e) => setFilterDeviceId(e.target.value)}
-                          className="w-full h-11 pl-10 pr-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                          className="w-full h-11 pl-10 pr-10 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
                           placeholder="ID thiết bị..."
                         />
+                        {filterDeviceId.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setFilterDeviceId('')}
+                            title="Xoá"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition-colors"
+                          >
+                            <XIcon size={14} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -558,7 +713,7 @@ const VideoManagement: React.FC<VideoManagementProps> = ({ videos, onViewVideo, 
                     onClick={() => setShowPublicModal(false)}
                     className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400"
                   >
-                    <X size={20} />
+                    <XIcon size={20} />
                   </button>
                 </div>
 

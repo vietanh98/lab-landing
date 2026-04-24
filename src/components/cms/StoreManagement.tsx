@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Store, Edit, Trash2, Plus, Video, HardDrive, MapPin, User, MoreVertical, ExternalLink, Clock, PackageCheck, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
+// Shared formatter — keeps the per-store storage column consistent with the
+// dashboard and the video list (all in GB now).
+import { formatBytesAsGB } from '../../utils/format';
 
 interface StoreManagementProps {
   stores: any[];
@@ -15,7 +18,7 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(50);
+  const [perPage, setPerPage] = useState(500);
   const [totalPages, setTotalPages] = useState(1);
   const [totalStores, setTotalStores] = useState(0);
   const hasFetchedRef = useRef(false);
@@ -49,7 +52,7 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
             ? listCandidate
             : (Array.isArray(listCandidate?.data) ? listCandidate.data : []);
           setLocalStores(items);
-          
+
           const total = Number(data?.data?.total_items ?? data?.data?.total ?? data?.meta?.total ?? 0);
           const lastPage = Number(data?.data?.last_page ?? data?.meta?.last_page ?? data?.pagination?.total_pages ?? 0);
           if (lastPage > 0) {
@@ -69,7 +72,7 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
         setLoading(false);
       }
     };
-    
+
     const queryKey = `${page}:${perPage}:${refreshKey}`;
     const shouldFetch = !hasFetchedRef.current || lastQueryRef.current !== queryKey;
     if (!shouldFetch) return;
@@ -82,12 +85,11 @@ const StoreManagement: React.FC<StoreManagementProps> = ({ stores, refreshKey, o
     if (onDeleteStore) onDeleteStore(id);
   };
 
+  // Legacy auto-scaling `formatBytes` removed in favour of the shared
+  // `formatBytesAsGB` helper so every screen shows storage in GB.
   const formatBytes = (bytes?: number) => {
     if (typeof bytes !== 'number' || isNaN(bytes)) return null;
-    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
-    return `${bytes} B`;
+    return formatBytesAsGB(bytes);
   };
 
   const getStatusInfo = (status: string) => {

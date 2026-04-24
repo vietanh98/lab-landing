@@ -369,7 +369,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     setIsDeleting(true);
 
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       const endpoint = `${apiBase}/api/v1/store/${deleteConfirm.storeId}`;
       const headers: Record<string, string> = { 'Accept': 'application/json' };
       const token = localStorage.getItem('token');
@@ -410,7 +410,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
     setIsDeletingStaff(true);
 
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       const endpoint = `${apiBase}/api/v1/users/${staffDeleteConfirm.userId}`;
       const headers: Record<string, string> = {
         Accept: 'application/json, text/plain, */*',
@@ -610,7 +610,7 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
       }
       const numericOwner = owner ? Number(owner) : NaN;
 
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       const token = localStorage.getItem('token');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',

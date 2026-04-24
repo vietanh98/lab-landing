@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Edit, Trash2, ChevronLeft, ChevronRight, Search, User, ShieldCheck, Activity } from 'lucide-react';
+import { Edit, Trash2, ChevronLeft, ChevronRight, Search, ShieldCheck, Activity, X as XIcon } from 'lucide-react';
 import CustomSelect from '../ui/CustomSelect';
 
 interface StaffManagementProps {
@@ -55,13 +55,21 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
         // fallback to initialStaff if API fails
         if (page === 1) setItems(initialStaff || []);
       } else {
-        const rawList = Array.isArray(data?.data?.items)
-          ? data.data.items
-          : Array.isArray(data?.data)
-            ? data.data
-            : Array.isArray(data?.users)
-              ? data.users
-              : [];
+        // Backend response shape for /api/v1/users:
+        //   { status, data: [...userResponses], extra_data: MetaData }
+        // where MetaData carries { total, last_page, current_page, per_page, ... }.
+        // The earlier code probed `data.data.items` / `data.data.total` which
+        // never matched our API — `data.data` IS the array, it doesn't have
+        // `.items` or `.total` attached to it. Result: pagination never worked.
+        const rawList = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.data?.items)
+            ? data.data.items
+            : Array.isArray(data?.data?.data)
+              ? data.data.data
+              : Array.isArray(data?.users)
+                ? data.users
+                : [];
         
         const mapped = rawList.map((u: any) => ({
           ...u,
@@ -94,17 +102,43 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
           });
         }
 
-        // Pagination metadata
-        const total = Number(data?.data?.total_items ?? data?.data?.total ?? data?.meta?.total ?? data?.pagination?.total ?? 0);
-        const lastPage = Number(data?.data?.total_pages ?? data?.meta?.last_page ?? data?.pagination?.total_pages ?? 0);
-        
+        // Pagination metadata — the BE's PaginateResponse uses
+        // `extra_data.{total, last_page, current_page, per_page}`. We keep
+        // the older probe paths as fallbacks for any legacy / differently-
+        // wrapped endpoint that might still respond to this URL.
+        const total = Number(
+          data?.extra_data?.total ??
+          data?.data?.total_items ??
+          data?.data?.total ??
+          data?.meta?.total ??
+          data?.pagination?.total ??
+          0
+        );
+        const lastPage = Number(
+          data?.extra_data?.last_page ??
+          data?.data?.total_pages ??
+          data?.data?.last_page ??
+          data?.meta?.last_page ??
+          data?.pagination?.total_pages ??
+          0
+        );
+
         setTotalItems(total);
         if (lastPage > 0) {
           setTotalPages(lastPage);
         } else if (total > 0) {
+          // Fallback when the server didn't surface `last_page` but we know
+          // the total — derive it from perPage so navigation still works.
           setTotalPages(Math.max(1, Math.ceil(total / perPage)));
         } else {
           setTotalPages(1);
+        }
+
+        // Defensive: if the current page is now beyond the last page
+        // (possible after a filter change reduces the result set), pull it
+        // back. The watch-triggered refetch will then load the right slice.
+        if (lastPage > 0 && page > lastPage) {
+          setPage(lastPage);
         }
       }
     } catch (err) {
@@ -126,13 +160,52 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
     }
   }, [page, perPage, refreshKey, appliedFilters]);
 
-  const handleSearch = () => {
-    setAppliedFilters({
-      filterSearch,
-      filterRole: filterRole === 'all' ? '' : filterRole,
-      filterStatus: filterStatus === 'all' ? '' : filterStatus,
+  // ---------- Auto-apply filters ----------
+  //
+  // The old UX required clicking a "Tìm kiếm" button to commit a filter
+  // change. That's now gone — typing in the search box or touching a dropdown
+  // applies the filter automatically. Two rules keep this efficient:
+  //
+  //   (a) Free-text search is debounced (400ms) so we don't spam the API
+  //       on every keystroke. A trailing/leading space shouldn't register
+  //       as a new search either — we trim before comparing.
+  //   (b) Dropdown changes apply immediately because they're discrete user
+  //       actions — no point waiting.
+  //
+  // Each applied-filter mutation also resets the page to 1, so a user who
+  // was browsing page 5 doesn't end up staring at an empty page 5 of a
+  // narrower result set.
+
+  useEffect(() => {
+    const next = filterSearch.trim();
+    const handle = setTimeout(() => {
+      setAppliedFilters(prev => (prev.filterSearch === next ? prev : { ...prev, filterSearch: next }));
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [filterSearch]);
+
+  useEffect(() => {
+    const nextRole = filterRole === 'all' ? '' : filterRole;
+    const nextStatus = filterStatus === 'all' ? '' : filterStatus;
+    setAppliedFilters(prev => {
+      if (prev.filterRole === nextRole && prev.filterStatus === nextStatus) return prev;
+      return { ...prev, filterRole: nextRole, filterStatus: nextStatus };
     });
     setPage(1);
+  }, [filterRole, filterStatus]);
+
+  // Shortcut for the "Xoá bộ lọc" button — only visible when any filter is
+  // currently active so the UI stays uncluttered when there's nothing to clear.
+  const hasActiveFilter =
+    filterSearch.trim().length > 0 || filterRole !== 'all' || filterStatus !== 'all';
+
+  const clearAllFilters = () => {
+    setFilterSearch('');
+    setFilterRole('all');
+    setFilterStatus('all');
+    // The debounce / immediate effects above will flush applied-filter state
+    // back to empty and reset page to 1 on the next tick.
   };
 
   useEffect(() => {
@@ -168,8 +241,15 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
   }, []);
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-visible flex flex-col min-h-[500px]">
-      <div className="p-4 border-b border-slate-100 flex flex-col gap-4 relative z-50">
+    // Root uses `h-full min-h-0` so the card always fits the viewport slot
+    // given by CMSLayout (which provides a flex-1 + min-h-0 chain down to
+    // here). We intentionally keep `overflow-visible` on the card itself —
+    // the filter dropdowns (CustomSelect) render with absolute positioning
+    // and would be clipped if we used `overflow-hidden`. Only the table
+    // container below gets its own scroll.
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-visible flex flex-col h-full min-h-0">
+      {/* Filter bar — natural height, stays pinned at top of the card. */}
+      <div className="flex-shrink-0 p-4 border-b border-slate-100 flex flex-col gap-4 relative z-50">
         <div className="flex items-center justify-between">
           <span className="text-sm font-bold text-slate-900">
             Danh sách nhân viên {totalItems > 0 && `(${totalItems})`}
@@ -207,9 +287,22 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
                 <input
                   value={filterSearch}
                   onChange={(e) => setFilterSearch(e.target.value)}
-                  className="w-full h-11 pl-10 pr-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
-                  placeholder="Tên, email..."
+                  // `pr-10` reserves space on the right so the inline clear
+                  // button (rendered only when the field has content) doesn't
+                  // overlap the typed text.
+                  className="w-full h-11 pl-10 pr-10 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/5 transition-all"
+                  placeholder="Tên, email, username..."
                 />
+                {filterSearch.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterSearch('')}
+                    title="Xoá từ khoá"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition-colors"
+                  >
+                    <XIcon size={14} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -251,20 +344,40 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
               />
             </div>
 
+            {/*
+              The old "Tìm kiếm" submit button is gone — filters apply live.
+              We reuse the 4th column for a "Xoá bộ lọc" shortcut that only
+              shows up when at least one filter is active, so the filter bar
+              stays quiet when nothing's filtered.
+            */}
             <div className="h-11">
-              <button
-                onClick={handleSearch}
-                className="w-full h-full flex items-center justify-center gap-2 px-4 bg-gradient-to-r from-brand to-brand-dark hover:shadow-lg hover:shadow-brand/30 text-white font-bold rounded-2xl transition-all active:scale-[0.98] group"
-              >
-                <Search size={16} className="group-hover:scale-110 transition-transform" />
-                <span className="text-sm">Tìm kiếm</span>
-              </button>
+              {hasActiveFilter ? (
+                <button
+                  onClick={clearAllFilters}
+                  className="w-full h-full flex items-center justify-center gap-2 px-4 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold rounded-2xl transition-all active:scale-[0.98]"
+                  title="Xoá tất cả bộ lọc"
+                >
+                  <XIcon size={16} />
+                  <span className="text-sm">Xoá bộ lọc</span>
+                </button>
+              ) : (
+                // Reserve the visual slot so the grid doesn't collapse and
+                // shift the other three columns when this button disappears.
+                <div className="w-full h-full" aria-hidden="true" />
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-x-auto">
+      {/*
+        Table container is the only part that should scroll. `flex-1 min-h-0`
+        makes it consume the remaining height between filter and pagination
+        (without forcing the card to grow), and `overflow-auto` handles both
+        wide tables and long row lists. `<thead sticky top-0>` keeps the
+        column headers visible while the body scrolls.
+      */}
+      <div className="flex-1 min-h-0 overflow-auto">
         <table className="w-full text-left">
           <thead className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 shadow-sm">
             <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider">
@@ -362,8 +475,8 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: initialStaff, 
         </table>
       </div>
 
-      {/* Pagination Controls */}
-      <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+      {/* Pagination Controls — natural height, stays pinned at bottom. */}
+      <div className="flex-shrink-0 p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
         {/* Record info */}
         <span className="text-xs text-slate-400 font-medium order-2 sm:order-1">
           {totalItems > 0
