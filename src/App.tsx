@@ -466,6 +466,12 @@ const CMS = ({ onLogout }: { onLogout: () => void }) => {
         req.append('name', name);
         req.append('position', String(position));
         if (user_id) req.append('user_id', String(user_id));
+        // Always signal an explicit intent to replace the manager list —
+        // without this marker the backend can't distinguish "I didn't
+        // touch managers" from "I cleared them all" (both land on an
+        // empty slice on the server side). Pair it with appending each
+        // selected id below so the server gets the full desired state.
+        req.append('managers_set', '1');
         manager_ids.forEach(uid => {
           const n = Number(uid);
           if (!isNaN(n)) req.append('manager_ids', String(n));
